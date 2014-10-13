@@ -50,7 +50,7 @@ cols = []
 values = []
 n_node = 0
 
-sigma2 = 400
+sigma2 = 10000
 for i in range(n_frames):
     uni = np.unique(segs[i])
     n_node += len(uni)
@@ -58,6 +58,7 @@ for i in range(n_frames):
     for u in uni:
         for adj in adjs[i][u]:
             if adj == False: continue
+            if node_id[i][u] == node_id[i][adj]: continue
             rows.append(node_id[i][u])
             cols.append(node_id[i][adj])
             values.append(np.exp(-np.linalg.norm(feats[i][u] - feats[i][adj]) ** 2 / (2*sigma2)))
@@ -67,8 +68,9 @@ for i in range(n_frames):
 
         if i < n_frames -1:
             if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
-                rows.append(node_id[i][u])
                 id = node_id[i+1][mappings[i+1][mappings[i][:u]]]
+                if node_id[i][u] == id: continue
+                rows.append(node_id[i][u])
                 cols.append(id)
                 values.append(np.exp(-np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2 / sigma2))
                 values.append(values[-1])
@@ -85,6 +87,7 @@ lhs = eye(n_node) - (inv_D.dot(W))
 from scipy.sparse.linalg import spsolve
 sal = spsolve(lhs, np.array(rhs))
 
+sal = (sal - np.min(sal)) / (np.max(sal) - np.min(sal))
 sal_image = np.zeros((r,c))
 
 count = 0
