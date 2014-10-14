@@ -12,7 +12,7 @@ from skimage.segmentation import find_boundaries
 from video_graph import *
 
 name = 'cheetah'
-#name = 'bmx'
+name = 'bmx'
 #name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -24,7 +24,7 @@ from skimage.filter import vsobel,hsobel
 
 mag = np.sqrt(vx**2 + vy ** 2)
 r,c,s = mag.shape
-sp_file = "../TSP/results/%s.mat" % name
+sp_file = "../code/TSP/results/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
 segs,adjs,mappings = get_tsp(sp_label)
 

@@ -115,14 +115,15 @@ def superpixel_feature(image,seg,lab_range):
         rows, cols = np.nonzero(seg == region)
         rgbs = image[rows, cols, :]
         labs = lab_image[rows, cols,:]
+        
 #        feature = np.empty(0)
-        feature = np.mean(rgbs, axis=0)
+        feature = np.mean(labs, axis=0)
 #         for c in range(3):
 #             hist, bin_edges = np.histogram(rgbs[:,c], bins=n_bins, range=(0,256))
 #             feature = np.concatenate((feature, hist))
-#         for c in range(3):
-#             hist, bin_edges = np.histogram(labs[:,c], bins=n_bins, range=(lab_range[c,0], lab_range[c,1]))
-#             feature = np.concatenate((feature, hist))
+        # for c in range(3):
+        #      hist, bin_edges = np.histogram(labs[:,c], bins=n_bins, range=(lab_range[c,0], lab_range[c,1]))
+        #      feature = np.concatenate((feature, hist))
 #         center_y = round(np.mean(rows))
 #         center_x = round(np.mean(cols))
 #         patch = gray[center_y:center_y+15, center_x:center_x+15]
@@ -896,3 +897,33 @@ def fgbg_mining(frames, sp_label, vx,vy, fg_num, bg_num,vis=False):
 def get_dominant_angle(angle):
     hist,bins = np.histogram(angle.flatten(), bins=20)
     return bins[np.argmax(hist)]
+
+
+def get_unary(frames, segs, saliency, sal_thres):
+
+    n_frames = len(frames)
+    fg_unary = []
+    bg_unary = []
+    
+    for i in range(n_frames):
+        uni = np.unique(segs[i])
+        for u in uni:
+            mean_sal = np.mean(saliency[:,:,i][segs[i] == u])
+            fg_unary.append(-mean_sal)
+            bg_unary.append(-(sal_thres - mean_sal))
+
+    unary = np.hstack((np.array(fg_unary, np.float32)[:,np.newaxis], 
+                       np.array(bg_unary, np.float32)[:,np.newaxis]))
+
+    return unary
+
+def get_feature_for_pairwise(frames, segs, adjs,lab_range):
+    features = feats2mat(get_sp_feature_all_frames(frames, segs, lab_range))
+    new_features = np.zeros(features.shape)
+
+    return features
+    # for i in range(n_frames):
+    #     uni = np.unique(segs[i])
+    #     for u in uni:
+    #         for (id,a) in enumerate(adjs[i][u]):
+    #             if a == False:continue
