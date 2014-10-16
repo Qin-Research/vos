@@ -117,7 +117,7 @@ def superpixel_feature(image,seg,lab_range):
         labs = lab_image[rows, cols,:]
         
 #        feature = np.empty(0)
-        feature = np.mean(labs, axis=0)
+        feature = np.mean(rgbs, axis=0)
 #         for c in range(3):
 #             hist, bin_edges = np.histogram(rgbs[:,c], bins=n_bins, range=(0,256))
 #             feature = np.concatenate((feature, hist))

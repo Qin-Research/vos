@@ -24,7 +24,7 @@ from skimage.filter import vsobel,hsobel
 
 mag = np.sqrt(vx**2 + vy ** 2)
 r,c,n_frames = mag.shape
-sp_file = "../code/TSP/results/%s.mat" % name
+sp_file = "../TSP/results/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
 segs,adjs,mappings = get_tsp(sp_label)
 lab_range = get_lab_range(frames)
@@ -50,7 +50,7 @@ cols = []
 values = []
 n_node = 0
 
-sigma2 = 20000
+sigma2 = 5000
 for i in range(n_frames):
     uni = np.unique(segs[i])
     n_node += len(uni)
@@ -83,19 +83,23 @@ from scipy.sparse import csr_matrix, spdiags
 W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
 
 inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
+D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
+lam = 100
+lhs = D + lam * (D - W)
 from scipy.sparse import eye
-lhs = eye(n_node) - (inv_D.dot(W))
 
-from scipy.sparse.linalg import spsolve
-sal = spsolve(lhs, np.array(rhs))
+#lhs = eye(n_node) - (inv_D.dot(W))
+
+from scipy.sparse.linalg import spsolve,lsmr
+sal = spsolve(lhs, lam*D.dot(np.array(rhs)))
 
 
 
-sal = np.array(rhs)
-A = inv_D.dot(W)
+# sal = np.array(rhs)
+# A = inv_D.dot(W)
 
-for i in range(10):
-    sal = A.dot(sal)
+# for i in range(10000):
+#     sal = A.dot(sal)
 
 #sal = (sal - np.min(sal)) / (np.max(sal) - np.min(sal))        
 count = 0
@@ -107,15 +111,19 @@ for i in range(n_frames):
     uni = np.unique(segs[i])
     s = sal[count:count+len(uni)]
     s = (s - np.min(s)) / (np.max(s) - np.min(s))
+    thres = mean(s)
     for (j,u) in enumerate(uni):
         rs, cs = np.nonzero(segs[i] == u)
         sal_image[rs,cs] = s[j]
-        if s[j] < thres:
-            im[rs,cs] = (0,0,0)
+        # if s[j] < thres:
+        #     im[rs,cs] = (0,0,0)
         count += 1
 
-
+    hst, bin_edges = np.histogram(sal_image.flatten(), bins=20)
+    thres = mean(sal_image[sal_image > bin_edges[1]])
+    im[sal_image < thres] = (0,0,0)    
     figure(figsize(20,15))
+    
     subplot(1,3,1)
     imshow(init_sal[:,:,i],cmap=gray())
 

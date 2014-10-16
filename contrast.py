@@ -23,8 +23,8 @@ frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)[:-1]) if f.en
 from skimage.filter import vsobel,hsobel
 
 mag = np.sqrt(vx**2 + vy ** 2)
-r,c,s = mag.shape
-sp_file = "../code/TSP/results/%s.mat" % name
+r,c,n_frames = mag.shape
+sp_file = "../TSP/results/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
 segs,adjs,mappings = get_tsp(sp_label)
 
@@ -33,9 +33,9 @@ saliency = loadmat('/home/masa/research/saliency/PCA_Saliency_CVPR2013/%s.mat' %
 sal = np.zeros((r,c,vx.shape[2]))
 
 out_dir = 'sal_%s' % name
-if not os.path.exists(out_dir): os.mkdir(out_dir)
-for d in ['/1','/2', '/3', '/4']:
-    os.mkdir(out_dir + d)
+# if not os.path.exists(out_dir): os.mkdir(out_dir)
+# for d in ['/1','/2', '/3', '/4']:
+#     os.mkdir(out_dir + d)
     
 for j in range(vx.shape[2]):
     uni = np.unique(segs[j])
@@ -67,30 +67,48 @@ for j in range(vx.shape[2]):
 
 
     final_sal = sal_image / np.max(sal_image) * saliency[:,:,j]
-    final_sal2 = sal_image / np.max(sal_image) + saliency[:,:,j]
+    final_sal2 = np.exp(sal_image / np.max(sal_image)) * saliency[:,:,j]
     
     sal[:,:,j] = final_sal
         
     subplot(1,4,1)
     imshow(flow_image,cmap=gray())    
     axis('off')
-    imsave(out_dir + '/1/%05d.png' % j, flow_image)
+#    imsave(out_dir + '/1/%05d.png' % j, flow_image)
     
     subplot(1,4,2)
     imshow(saliency[:,:,j],cmap=gray())    
     axis('off')
-    imsave(out_dir + '/2/%05d.png' % j, saliency[:,:,j])
+#    imsave(out_dir + '/2/%05d.png' % j, saliency[:,:,j])
     
     subplot(1,4,3)
     imshow(final_sal,cmap=gray())
     axis('off')
-    imsave(out_dir + '/3/%05d.png' % j, final_sal)    
+#    imsave(out_dir + '/3/%05d.png' % j, final_sal)    
     
     subplot(1,4,4)
     imshow(final_sal2,cmap=gray())
     axis('off')
-    imsave(out_dir + '/4/%05d.png' % j, final_sal2)    
+ #   imsave(out_dir + '/4/%05d.png' % j, final_sal2)    
     
     show()
-                    
+
+count = 0
+from skimage import img_as_ubyte
+
+for i in range(n_frames):
+    sal_image = np.zeros((r,c))
+    im = img_as_ubyte(imread(frames[i]))    
+    uni = np.unique(segs[i])
+
+    hist, bin_edges = np.histogram(sal[:,:,i].flatten(), bins=20) 
+    thres = mean(sal[:,:,i][sal[:,:,i] > bin_edges[1]])
+    print i,thres
+
+    im[sal[:,:,i] < thres] = (0,0,0)
+
+    figure(figsize(20,15))
+    imshow(im,cmap=gray())
+    show()
+                        
 np.save('sal_%s.npy' % name, sal)
