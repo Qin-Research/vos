@@ -73,7 +73,7 @@ for i in range(n_frames):
                 if node_id[i][u] == id: continue
                 rows.append(node_id[i][u])
                 cols.append(id)
-                values.append(np.exp(-np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2 / sigma2))
+                values.append(2*np.exp(-np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2 / sigma2))
                 values.append(values[-1])
                 cols.append(node_id[i][u])
                 rows.append(id)
@@ -91,8 +91,7 @@ from scipy.sparse import eye
 #lhs = eye(n_node) - (inv_D.dot(W))
 
 from scipy.sparse.linalg import spsolve,lsmr
-sal = spsolve(lhs, lam*D.dot(np.array(rhs)))
-
+sal = spsolve(lhs, D.dot(np.array(rhs)))
 
 
 # sal = np.array(rhs)
@@ -105,8 +104,11 @@ sal = spsolve(lhs, lam*D.dot(np.array(rhs)))
 count = 0
 from skimage import img_as_ubyte
 thres = 0.5
+
+ims = []
 for i in range(n_frames):
     sal_image = np.zeros((r,c))
+    sal_image2 = np.zeros((r,c))
     im = img_as_ubyte(imread(frames[i]))    
     uni = np.unique(segs[i])
     s = sal[count:count+len(uni)]
@@ -121,7 +123,8 @@ for i in range(n_frames):
 
     hst, bin_edges = np.histogram(sal_image.flatten(), bins=20)
     thres = mean(sal_image[sal_image > bin_edges[1]])
-    im[sal_image < thres] = (0,0,0)    
+    im[sal_image < thres] = (0,0,0)
+    ims.append(im)
     figure(figsize(20,15))
     
     subplot(1,3,1)
