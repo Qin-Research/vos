@@ -13,7 +13,7 @@ from video_graph import *
 from IPython.core.pylabtools import figsize
 from scipy.sparse import csr_matrix    
 name = 'bmx'
-name = 'cheetah'
+#name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -51,13 +51,22 @@ values = []
 n_node = 0
 
 sigma2 = 5000
+pos = []
+edges = []
+z_interval = 100
 for i in range(n_frames):
     uni = np.unique(segs[i])
     n_node += len(uni)
     print i
     for u in uni:
         rs,cs = np.nonzero(segs[i] == u)
+        mean_x = np.mean(cs)
+        mean_y = np.mean(rs)
 
+        if i < 5:        
+         pos.append(mean_x)
+         pos.append(mean_y)
+         pos.append(z_interval * i)
         for (n_id,adj) in enumerate(adjs[i][u]):
             if adj == False: continue
             if node_id[i][u] == node_id[i][n_id]: continue
@@ -68,6 +77,8 @@ for i in range(n_frames):
             cols.append(node_id[i][u])
             rows.append(node_id[i][n_id])
 
+            if i < 5:
+               edges.append((node_id[i][u], node_id[i][n_id]))
 
         if i < n_frames -1:
             if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
@@ -80,95 +91,85 @@ for i in range(n_frames):
                 values.append(values[-1])
                 cols.append(node_id[i][u])
                 rows.append(id)
+
+                if i < 4:                
+                  edges.append((node_id[i][u], id))
+
+xyz=np.array(pos).reshape(-1,3)
+
+from mayavi import mlab
+mlab.figure(1)
+mlab.clf()
+
+pts = mlab.points3d(xyz[:,0], xyz[:,1], xyz[:,2],
+                    scale_mode='none',
+                    scale_factor=1,
+                    resolution=20)
+
+pts.mlab_source.dataset.lines = np.array(edges)
+tube = mlab.pipeline.tube(pts)
+mlab.pipeline.surface(tube)
+
+mlab.show() # interactive window
                         
                 
-from scipy.sparse import csr_matrix, spdiags                                   
-W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
+# from scipy.sparse import csr_matrix, spdiags                                   
+# W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
 
-inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
-D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
-lam = 100
-lhs = D + lam * (D - W)
-from scipy.sparse import eye
+# inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
+# D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
+# lam = 100
+# lhs = D + lam * (D - W)
+# from scipy.sparse import eye
 
-#lhs = eye(n_node) - (inv_D.dot(W))
+# #lhs = eye(n_node) - (inv_D.dot(W))
 
-from scipy.sparse.linalg import spsolve,lsmr
-sal = spsolve(lhs, D.dot(np.array(rhs)))
+# from scipy.sparse.linalg import spsolve,lsmr
+# sal = spsolve(lhs, D.dot(np.array(rhs)))
 
 
-# sal = np.array(rhs)
-# A = inv_D.dot(W)
+# # sal = np.array(rhs)
+# # A = inv_D.dot(W)
 
-# for i in range(10000):
-#     sal = A.dot(sal)
+# # for i in range(10000):
+# #     sal = A.dot(sal)
 
-#sal = (sal - np.min(sal)) / (np.max(sal) - np.min(sal))        
-count = 0
-from skimage import img_as_ubyte
+# #sal = (sal - np.min(sal)) / (np.max(sal) - np.min(sal))        
+# count = 0
+# from skimage import img_as_ubyte
+# thres = 0.5
 
-masks = []
-ims = []
-for i in range(n_frames):
-    sal_image = np.zeros((r,c))
-
-    im = img_as_ubyte(imread(frames[i]))    
-    uni = np.unique(segs[i])
-    s = sal[count:count+len(uni)]
-    s = (s - np.min(s)) / (np.max(s) - np.min(s))
-    thres = mean(s)
-    for (j,u) in enumerate(uni):
-        rs, cs = np.nonzero(segs[i] == u)
-        sal_image[rs,cs] = s[j]
-        # if s[j] < thres:
-        #     im[rs,cs] = (0,0,0)
-        count += 1
-
-    hst, bin_edges = np.histogram(sal_image.flatten(), bins=20)
-    thres = mean(sal_image[sal_image > bin_edges[1]])
-    im[sal_image < thres] = (0,0,0)
-    ims.append(im)
-    masks.append(sal_image>thres)
-
-from segmentation import segment
-final_mask = segment(frames, segs, masks, 3, 10, adjs,lab_range)
-
-count = 0
-for i in range(n_frames):
-    sal_image = np.zeros((r,c))
-
-    im = img_as_ubyte(imread(frames[i]))    
-    uni = np.unique(segs[i])
-    s = sal[count:count+len(uni)]
-    s = (s - np.min(s)) / (np.max(s) - np.min(s))
-
-    for (j,u) in enumerate(uni):
-        rs, cs = np.nonzero(segs[i] == u)
-        sal_image[rs,cs] = s[j]
-        # if s[j] < thres:
-        #     im[rs,cs] = (0,0,0)
-        count += 1
-    
-    figure(figsize(20,15))
-
-    im[final_mask[i].astype(np.bool) == 0] = (0,0,0)
-        
-    subplot(1,4,1)
-    imshow(init_sal[:,:,i],cmap=gray())
-
-    subplot(1,4,2)
-    imshow(sal_image,cmap=gray())
-
-    subplot(1,4,3)
-    imshow(ims[i],cmap=gray())
-
-    subplot(1,4,4)
-    imshow(im,cmap=gray())
-
- 
+# masks = []
 # for i in range(n_frames):
-# #    figure(figsize(20,15))
+#     sal_image = np.zeros((r,c))
+#     sal_image2 = np.zeros((r,c))
+#     im = img_as_ubyte(imread(frames[i]))    
+#     uni = np.unique(segs[i])
+#     s = sal[count:count+len(uni)]
+#     s = (s - np.min(s)) / (np.max(s) - np.min(s))
+#     thres = mean(s)
+#     for (j,u) in enumerate(uni):
+#         rs, cs = np.nonzero(segs[i] == u)
+#         sal_image[rs,cs] = s[j]
+#         # if s[j] < thres:
+#         #     im[rs,cs] = (0,0,0)
+#         count += 1
+
+#     hst, bin_edges = np.histogram(sal_image.flatten(), bins=20)
+#     thres = mean(sal_image[sal_image > bin_edges[1]])
+#     im[sal_image < thres] = (0,0,0)
+#     masks.append(sal_image>thres)
+#     figure(figsize(20,15))
     
-#     imshow(im)
-#     imsave('seg/%05d.png' % i, im)
-#     show()
+#     subplot(1,3,1)
+#     imshow(init_sal[:,:,i],cmap=gray())
+
+#     subplot(1,3,2)
+#     imshow(sal_image,cmap=gray())
+
+#     subplot(1,3,3)
+#     imshow(im,cmap=gray())
+
+# from segmentation import segment
+
+# final_mask = segment(frames, s    

@@ -13,7 +13,7 @@ from video_graph import *
 
 name = 'cheetah'
 name = 'bmx'
-#name = 'hummingbird'
+name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -66,7 +66,8 @@ for j in range(vx.shape[2]):
         flow_image[rows, cols] = fm
 
 
-    final_sal = sal_image / np.max(sal_image) * saliency[:,:,j]
+#    final_sal = sal_image / np.max(sal_image) * saliency[:,:,j]
+    final_sal = sal_image / np.max(sal_image)
     final_sal2 = np.exp(sal_image / np.max(sal_image)) * saliency[:,:,j]
     
     sal[:,:,j] = final_sal
