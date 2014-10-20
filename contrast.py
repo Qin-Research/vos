@@ -66,9 +66,9 @@ for j in range(vx.shape[2]):
         flow_image[rows, cols] = fm
 
 
-#    final_sal = sal_image / np.max(sal_image) * saliency[:,:,j]
-    final_sal = sal_image / np.max(sal_image)
-    final_sal2 = np.exp(sal_image / np.max(sal_image)) * saliency[:,:,j]
+    final_sal = sal_image / np.max(sal_image) * saliency[:,:,j]
+    final_sal2 = sal_image / np.max(sal_image)
+#    final_sal2 = np.exp(sal_image / np.max(sal_image)) * saliency[:,:,j]
     
     sal[:,:,j] = final_sal
         
@@ -83,33 +83,33 @@ for j in range(vx.shape[2]):
 #    imsave(out_dir + '/2/%05d.png' % j, saliency[:,:,j])
     
     subplot(1,4,3)
-    imshow(final_sal,cmap=gray())
+    imshow(final_sal2,cmap=gray())
     axis('off')
 #    imsave(out_dir + '/3/%05d.png' % j, final_sal)    
     
     subplot(1,4,4)
-    imshow(final_sal2,cmap=gray())
+    imshow(final_sal,cmap=gray())
     axis('off')
  #   imsave(out_dir + '/4/%05d.png' % j, final_sal2)    
     
     show()
 
-count = 0
-from skimage import img_as_ubyte
+# count = 0
+# from skimage import img_as_ubyte
 
-for i in range(n_frames):
-    sal_image = np.zeros((r,c))
-    im = img_as_ubyte(imread(frames[i]))    
-    uni = np.unique(segs[i])
+# for i in range(n_frames):
+#     sal_image = np.zeros((r,c))
+#     im = img_as_ubyte(imread(frames[i]))    
+#     uni = np.unique(segs[i])
 
-    hist, bin_edges = np.histogram(sal[:,:,i].flatten(), bins=20) 
-    thres = mean(sal[:,:,i][sal[:,:,i] > bin_edges[1]])
-    print i,thres
+#     hist, bin_edges = np.histogram(sal[:,:,i].flatten(), bins=20) 
+#     thres = mean(sal[:,:,i][sal[:,:,i] > bin_edges[1]])
+#     print i,thres
 
-    im[sal[:,:,i] < thres] = (0,0,0)
+#     im[sal[:,:,i] < thres] = (0,0,0)
 
-    figure(figsize(20,15))
-    imshow(im,cmap=gray())
-    show()
+#     figure(figsize(20,15))
+#     imshow(im,cmap=gray())
+#     show()
                         
-np.save('sal_%s.npy' % name, sal)
+#np.save('sal_%s.npy' % name, sal)

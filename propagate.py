@@ -13,7 +13,7 @@ from video_graph import *
 from IPython.core.pylabtools import figsize
 from scipy.sparse import csr_matrix    
 name = 'bmx'
-name = 'cheetah'
+#name = 'cheetah'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -51,6 +51,9 @@ values = []
 n_node = 0
 
 sigma2 = 5000
+edges = []
+edge_cost = []
+n_temp = 0
 for i in range(n_frames):
     uni = np.unique(segs[i])
     n_node += len(uni)
@@ -68,6 +71,8 @@ for i in range(n_frames):
             cols.append(node_id[i][u])
             rows.append(node_id[i][n_id])
 
+            edges.append((node_id[i][u], node_id[i][n_id]))
+            edge_cost.append(values[-1])
 
         if i < n_frames -1:
             if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
@@ -80,7 +85,10 @@ for i in range(n_frames):
                 values.append(values[-1])
                 cols.append(node_id[i][u])
                 rows.append(id)
-                        
+
+                edges.append((node_id[i][u], id))                
+                edge_cost.append(values[-1])
+                n_temp += 1
                 
 from scipy.sparse import csr_matrix, spdiags                                   
 W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
@@ -104,9 +112,10 @@ sal = spsolve(lhs, D.dot(np.array(rhs)))
 #     sal = A.dot(sal)
 
 #sal = (sal - np.min(sal)) / (np.max(sal) - np.min(sal))        
-count = 0
+
 from skimage import img_as_ubyte
 
+count = 0
 masks = []
 ims = []
 for i in range(n_frames):
@@ -131,13 +140,97 @@ for i in range(n_frames):
     masks.append(sal_image>thres)
 
 from segmentation import segment
-final_mask = segment(frames, segs, masks, 3, 10, adjs,lab_range)
 
+from copy import deepcopy
+final_mask = segment(frames, segs, deepcopy(masks), 3, 50, adjs,lab_range)
+
+def segment2(frames, sp_features, segs, edges, edge_cost, mask, max_iter, potts_weight, adjs,lab_range):
+    import opengm
+    for i in range(max_iter):
+        print i
+        all_samples = []
+        labels = []
+
+        for j in range(len(mask)):
+            uni = np.unique(segs[j])
+            im = imread(frames[j])
+            for u in uni:
+                rows, cols = np.nonzero(segs[j] == u)
+                mean = np.mean(im[rows, cols],axis=0)                
+                if mask[j][rows[0], cols[0]] > 0:
+                    labels.append(0)
+                else:
+                    labels.append(1)
+
+                all_samples.append(mean[0])
+                all_samples.append(mean[1])
+                all_samples.append(mean[2])
+
+        from sklearn.ensemble import RandomForestClassifier                
+        data = np.array(all_samples).reshape(-1,3)
+        rf = RandomForestClassifier()
+        rf.fit(data, labels)
+        
+        prob = rf.predict_proba(data)
+
+        eps = 1e-7
+        unary = (-np.log(prob+eps))
+        unary[np.array(labels) == 1, 0] = np.inf
+#        unary = get_unary(frames, segs, saliency, sal_thres)
+
+        n_nodes = data.shape[0]
+        gm = opengm.graphicalModel(np.ones(n_nodes, dtype=opengm.index_type) * 2, operator="adder")
+        fids=gm.addFunctions(unary)
+        vis=np.arange(0,unary.shape[0],dtype=numpy.uint64)
+# add all unary factors at once
+        gm.addFactors(fids,vis)
+        
+        potts = potts_weight * np.array([[0,1],
+                                         [1,0]])
+
+        import time
+        t = time.time()            
+        for (e_id,e) in enumerate(edges):
+            fid = gm.addFunction(opengm.PottsFunction([2,2], valueEqual =0, valueNotEqual=potts_weight*edge_cost[e_id]))
+            s = np.sort(e)
+            gm.addFactor(fid, [s[0], s[1]])
+        print time.time() - t
+
+
+
+        from opengm.inference import GraphCut
+        
+        inf = GraphCut(gm)
+        inf.infer()
+        sol = inf.arg()
+
+        count = 0
+        for j in range(len(mask)):
+            uni = np.unique(segs[j])
+
+            new_mask = np.zeros(mask[j].shape)
+            for u in uni:
+                rows, cols = np.nonzero(segs[j] == u)
+                if sol[count] == 0:
+                    new_mask[rows, cols] = 1
+                else:
+                    new_mask[rows, cols] = 0
+                    
+                count += 1
+                
+            mask[j] = new_mask
+                
+    return mask
+    
+final_mask2 = segment2(frames, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 10, adjs,lab_range)
+
+from video_util import *
 count = 0
 for i in range(n_frames):
     sal_image = np.zeros((r,c))
 
-    im = img_as_ubyte(imread(frames[i]))    
+    im = img_as_ubyte(imread(frames[i]))
+    im2 = img_as_ubyte(imread(frames[i]))        
     uni = np.unique(segs[i])
     s = sal[count:count+len(uni)]
     s = (s - np.min(s)) / (np.max(s) - np.min(s))
@@ -149,23 +242,33 @@ for i in range(n_frames):
         #     im[rs,cs] = (0,0,0)
         count += 1
     
-    figure(figsize(20,15))
+    figure(figsize(27,21))
 
-    im[final_mask[i].astype(np.bool) == 0] = (0,0,0)
+#    im[final_mask[i].astype(np.bool) == 0] = (0,0,0)
+#    im2[final_mask2[i].astype(np.bool) == 0] = (0,0,0)
         
-    subplot(1,4,1)
+    subplot(1,5,1)
     imshow(init_sal[:,:,i],cmap=gray())
+    axis("off")
 
-    subplot(1,4,2)
+    subplot(1,5,2)
     imshow(sal_image,cmap=gray())
+    axis("off")    
 
-    subplot(1,4,3)
+    subplot(1,5,3)
     imshow(ims[i],cmap=gray())
+    axis("off")    
 
-    subplot(1,4,4)
-    imshow(im,cmap=gray())
+    subplot(1,5,4)
+    imshow(alpha_composite(im, mask_to_rgb(final_mask[i], (0,255,0))),cmap=gray())
+    axis("off")    
 
- 
+    subplot(1,5,5)
+    imshow(alpha_composite(im, mask_to_rgb(final_mask2[i], (0,255,0))),cmap=gray())
+    axis("off")    
+    
+
+    show() 
 # for i in range(n_frames):
 # #    figure(figsize(20,15))
     

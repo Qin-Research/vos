@@ -98,8 +98,8 @@ for i in range(n_frames):
 xyz=np.array(pos).reshape(-1,3)
 
 from mayavi import mlab
-mlab.figure(1)
-mlab.clf()
+#mlab.figure(1)
+#mlab.clf()
 
 pts = mlab.points3d(xyz[:,0], xyz[:,1], xyz[:,2],
                     scale_mode='none',
