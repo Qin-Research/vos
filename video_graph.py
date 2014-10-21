@@ -116,22 +116,52 @@ def superpixel_feature(image,seg,lab_range):
         rgbs = image[rows, cols, :]
         labs = lab_image[rows, cols,:]
         
-#        feature = np.empty(0)
+        feature = np.empty(0)
+#        feature = np.mean(rgbs, axis=0)
+        for c in range(3):
+            hist, bin_edges = np.histogram(rgbs[:,c], bins=n_bins, range=(0,256),normed=True )
+            feature = np.concatenate((feature, hist))
+        for c in range(3):
+             hist, bin_edges = np.histogram(labs[:,c], bins=n_bins, range=(lab_range[c,0], lab_range[c,1]))
+             feature = np.concatenate((feature, hist))
+        center_y = round(np.mean(rows))
+        center_x = round(np.mean(cols))
+        patch = gray[center_y:center_y+15, center_x:center_x+15]
+        hog_feat = hog(patch,orientations=6,pixels_per_cell=(5,5), cells_per_block=(3,3))
+        feature = np.concatenate((feature, hog_feat))
+        feature = np.concatenate((feature, np.array([np.mean(rows)/image.shape[0], np.mean(cols)/image.shape[1]])))
+ #       feature = np.concatenate((feature, np.mean(rgbs, axis=0)))
+ #       feature = np.concatenate((feature, np.mean(labs, axis=0)))
+
+        if features == None:
+            dim = len(feature)
+            features = np.zeros((n, dim))
+            features[0] = feature
+        else:
+            features[i] = feature
+
+ #   return scale(features)
+
+    
+    return (features)
+
+def superpixel_rgb_mean(image,seg,lab_range):
+    uni = np.unique(seg)
+    n = len(uni)
+    dim = 0
+    features = None
+    lab_image = rgb2lab(image)
+    gray = np.pad(rgb2gray(image), (7,7), 'symmetric')
+
+    n_bins = 20
+    mean_rgb = np.zeros((len(uni),3))
+    count = np.zeros(len(uni))
+    
+    for (i,region) in enumerate(uni):
+        rows, cols = np.nonzero(seg == region)
+        rgbs = image[rows, cols, :]
+        
         feature = np.mean(rgbs, axis=0)
-#         for c in range(3):
-#             hist, bin_edges = np.histogram(rgbs[:,c], bins=n_bins, range=(0,256))
-#             feature = np.concatenate((feature, hist))
-        # for c in range(3):
-        #      hist, bin_edges = np.histogram(labs[:,c], bins=n_bins, range=(lab_range[c,0], lab_range[c,1]))
-        #      feature = np.concatenate((feature, hist))
-#         center_y = round(np.mean(rows))
-#         center_x = round(np.mean(cols))
-#         patch = gray[center_y:center_y+15, center_x:center_x+15]
-#         hog_feat = hog(patch,orientations=6,pixels_per_cell=(5,5), cells_per_block=(3,3))
-#         feature = np.concatenate((feature, hog_feat))
-#         feature = np.concatenate((feature, np.array([np.mean(rows)/image.shape[0], np.mean(cols)/image.shape[1]])))
-# #        feature = np.concatenate((feature, np.mean(rgbs, axis=0)))
-# #        feature = np.concatenate((feature, np.mean(labs, axis=0)))
 
         if features == None:
             dim = len(feature)
@@ -440,7 +470,17 @@ def get_sp_feature_all_frames(frames, segs, lab_range):
     feats = []
     from skimage import img_as_ubyte
     for (ii,im) in enumerate(frames):
+#        features = superpixel_feature((imread(im)), segs[ii], lab_range)
         features = superpixel_feature(img_as_ubyte(imread(im)), segs[ii], lab_range)
+        feats.append(features)
+        
+    return feats
+
+def get_sp_rgb_mean_all_frames(frames, segs, lab_range):
+    feats = []
+    from skimage import img_as_ubyte
+    for (ii,im) in enumerate(frames):
+        features = superpixel_rgb_mean(img_as_ubyte(imread(im)), segs[ii], lab_range)
         feats.append(features)
         
     return feats
