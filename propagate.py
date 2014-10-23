@@ -167,19 +167,22 @@ def segment(frames, sp_features, segs, mask, max_iter, potts_weight, adjs, lab_r
                 labels[count] = 0
             else:
                 labels[count] = 1
-                count += 1
+            count += 1
     
 
     sp_feature = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32)
+#    sp_feature = np.load("feature.npy")[:,:3]
     from sklearn.decomposition import PCA
 
     pca = PCA(50)
-    sp_feature = pca.fit_transform(feats2mat(sp_feature))                 
+    sp_feature = pca.fit_transform(feats2mat(sp_feature))
+ #   sp_feature = feats2mat(sp_feature).astype(np.float32)
+    np.save("feature.npy", sp_feature)
     for i in range(max_iter):
         print i
 
         from sklearn.ensemble import RandomForestClassifier                
-#        data = np.array(all_samples).reshape(-1,3)
+
         print "Training forest."
         rf = RandomForestClassifier()
         rf.fit(sp_features, labels)
@@ -242,7 +245,7 @@ def segment2(frames, sp_features, segs, edges, edge_cost, mask, max_iter, potts_
                 labels[count] = 0
             else:
                 labels[count] = 1
-                count += 1
+            count += 1
     
 
     for i in range(max_iter):
@@ -305,16 +308,17 @@ def segment2(frames, sp_features, segs, edges, edge_cost, mask, max_iter, potts_
     return mask
     
 
-final_mask2 = segment2(frames, sp_feature, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 10, adjs,lab_range)
+# final_mask2 = segment2(frames, sp_feature, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 10, adjs,lab_range)
 
+final_mask2 = final_mask
 from video_util import *
-count = 0
+
 for i in range(n_frames):
     figure(figsize(27,21))
 
 #    im[final_mask[i].astype(np.bool) == 0] = (0,0,0)
 #    im2[final_mask2[i].astype(np.bool) == 0] = (0,0,0)
-        
+    im = img_as_ubyte(imread(frames[i]))            
     subplot(1,5,1)
     imshow(init_sal[:,:,i],cmap=gray())
     axis("off")
