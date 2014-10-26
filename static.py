@@ -86,7 +86,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
     return features
 
 #name = 'girl'
-name = 'cheetah'
+name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -106,13 +106,17 @@ feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
 node_id = []
 
 id_count = 0
-init_sal = np.load('sal_%s.npy' % name)
+init_sal = np.zeros(mag.shape)
+
+
 rhs = []
 for i in range(n_frames):
     uni = np.unique(segs[i])
     id_dict = {}
     for u in uni:
         rs, cs = np.nonzero(segs[i] == u)
+        init_sal[:,:,i][rs,cs] = np.mean(mag[:,:,i][rs,cs])
+                         
         rhs.append(np.mean(init_sal[:,:,i][rs,cs]))
         id_dict[u] = id_count
         id_count += 1
@@ -188,6 +192,7 @@ sal = spsolve(lhs, D.dot(np.array(rhs)))
 
 from skimage import img_as_ubyte
 
+sal = rhs
 count = 0
 masks = []
 ims = []

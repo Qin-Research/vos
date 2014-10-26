@@ -1,6 +1,6 @@
 from pylab import *
 import numpy as np
-from util import *
+#from util import *
 from sys import argv
 from time import time
 import os
@@ -20,8 +20,8 @@ from video_graph import *
 
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
+name = 'hummingbird'
 name = 'bmx'
-#name = 'bmx'
 #name = 'cheetah'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -35,6 +35,7 @@ mag = np.sqrt(vx**2 + vy ** 2)
 angle = np.arctan2(vy,vx) / np.pi * 180
 
 for i in range(len(frames)):
+    print i
     u = vx[:,:,i]
     v = vy[:,:,i]
 
@@ -46,13 +47,23 @@ for i in range(len(frames)):
     # a_u = hsobel(angle[:,:,i])
     # a_v = vsobel(angle[:,:,i])
 
-    figure(figsize=(12,9))
+    figure(figsize=(21,18))
 
-#    subplot(1,2,1)
+    subplot(1,3,1)
     grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
     imshow(grad_mag,cmap=jet())
-    imsave('%05d.png' % i, grad_mag)
-    colorbar()
+
+    subplot(1,3,2)
+    hst, bin_edges = np.histogram(grad_mag.flatten(), bins=20)    
+    imshow(grad_mag >= bin_edges[1],cmap=gray())
+
+    subplot(1,3,3)
+    from scipy.ndimage.morphology import distance_transform_edt
+    
+    imshow(distance_transform_edt(1 - (grad_mag >= bin_edges[1] )))
+
+#    imsave('%05d.png' % i, grad_mag)
+
 
     # subplot(1,2,2)
     # imshow(np.sqrt(a_u**2 + a_v **2))

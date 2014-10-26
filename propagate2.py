@@ -7,218 +7,13 @@ from scipy.io import loadmat
 from sklearn.preprocessing import scale
 from skimage.color import rgb2gray,rgb2lab
 from skimage.feature import hog
+from skimage import img_as_ubyte
 from joblib import Parallel, delayed
 from skimage.segmentation import find_boundaries
 from video_graph import *
 from IPython.core.pylabtools import figsize
 from scipy.sparse import csr_matrix
 
-def superpixel_feature(image,seg,lab_range):
-    uni = np.unique(seg)
-    n = len(uni)
-    dim = 0
-    features = None
-    lab_image = rgb2lab(image)
-    gray = np.pad(rgb2gray(image), (7,7), 'symmetric')
-
-    n_bins = 20    
-    for (i,region) in enumerate(uni):
-        rows, cols = np.nonzero(seg == region)
-        rgbs = image[rows, cols, :]
-        labs = lab_image[rows, cols,:]
-        
-        #feature = np.empty(0)
-        feature = np.mean(rgbs, axis=0) / 13
-        center_y = np.mean(rows) / 60
-        center_x = np.mean(cols) / 60
-        feature = np.concatenate((feature,np.array([center_y,center_x])))
-                                  
-#        feature = np.concatenate((feature,np.min(rgbs, axis=0)))
-#       feature = np.concatenate((feature,np.max(rgbs, axis=0)))
-        # for c in range(3):
-        #     hist, bin_edges = np.histogram(rgbs[:,c], bins=n_bins, range=(0,256),normed=True )
-        #     feature = np.concatenate((feature, hist))
-        # for c in range(3):
-        #      hist, bin_edges = np.histogram(labs[:,c], bins=n_bins, range=(lab_range[c,0], lab_range[c,1]))
-        #      feature = np.concatenate((feature, hist))
-        #center_y = round(np.mean(rows))
-        #center_x = round(np.mean(cols))
-        # patch = gray[center_y:center_y+15, center_x:center_x+15]
-        # hog_feat = hog(patch,orientations=6,pixels_per_cell=(5,5), cells_per_block=(3,3))
-        # feature = np.concatenate((feature, hog_feat))
-        # feature = np.concatenate((feature, np.array([np.mean(rows)/image.shape[0], np.mean(cols)/image.shape[1]])))
- #       feature = np.concatenate((feature, np.mean(rgbs, axis=0)))
- #       feature = np.concatenate((feature, np.mean(labs, axis=0)))
-
-        if features == None:
-            dim = len(feature)
-            features = np.zeros((n, dim))
-            features[0] = feature
-        else:
-            features[i] = feature
-
- #   return scale(features)
-
-    
-    return (features)
-
-def get_sp_feature_all_frames(frames, segs, lab_range):
-    feats = []
-    from skimage import img_as_ubyte
-    for (ii,im) in enumerate(frames):
-#        features = superpixel_feature((imread(im)), segs[ii], lab_range)
-        features = superpixel_feature(img_as_ubyte(imread(im)), segs[ii], lab_range)
-        feats.append(features)
-        
-    return feats
-
-def feats2mat(feats):
-    ret = feats[0]
-    for feat in feats[1:]:
-        ret = np.vstack((ret, feat))
-    return ret
-
-def get_feature_for_pairwise(frames, segs, adjs,lab_range):
-    print 'foo'
-    features = feats2mat(get_sp_feature_all_frames(frames, segs, lab_range))
-    new_features = np.zeros(features.shape)
-
-    return features
-
-#name = 'girl'
-name = 'cheetah'
-
-imdir = '/home/masa/research/code/rgb/%s/' % name
-vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
-vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
-
-frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)[:-1]) if f.endswith(".png")] 
-from skimage.filter import vsobel,hsobel
-
-mag = np.sqrt(vx**2 + vy ** 2)
-r,c,n_frames = mag.shape
-sp_file = "../TSP/results/%s.mat" % name
-sp_label = loadmat(sp_file)["sp_labels"]
-segs,adjs,mappings = get_tsp(sp_label)
-lab_range = get_lab_range(frames)
-feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
-
-node_id = []
-
-id_count = 0
-init_sal = np.load('sal_%s.npy' % name)
-rhs = []
-for i in range(n_frames):
-    uni = np.unique(segs[i])
-    id_dict = {}
-    for u in uni:
-        rs, cs = np.nonzero(segs[i] == u)
-        rhs.append(np.mean(init_sal[:,:,i][rs,cs]))
-        id_dict[u] = id_count
-        id_count += 1
-    node_id.append(id_dict)
-    
-rows = []
-cols = []
-values = []
-n_node = 0
-
-sigma2 = 10000
-edges = []
-edge_cost = []
-n_temp = 0
-for i in range(n_frames):
-    uni = np.unique(segs[i])
-    n_node += len(uni)
-    print i
-    for u in uni:
-        rs,cs = np.nonzero(segs[i] == u)
-
-        for (n_id,adj) in enumerate(adjs[i][u]):
-            if adj == False: continue
-            if node_id[i][u] == node_id[i][n_id]: continue
-            rows.append(node_id[i][u])
-            cols.append(node_id[i][n_id])
-            values.append(np.exp(-np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2 / (sigma2)))
-            values.append(values[-1])
-            cols.append(node_id[i][u])
-            rows.append(node_id[i][n_id])
-
-            edges.append((node_id[i][u], node_id[i][n_id]))
-            edge_cost.append(values[-1])
-
-        if i < n_frames -1:
-            if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
-
-                id = node_id[i+1][mappings[i+1][mappings[i][:u]]]
-                if node_id[i][u] == id: continue
-                rows.append(node_id[i][u])
-                cols.append(id)
-                values.append(np.exp(-np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2 / sigma2))
-                values.append(values[-1])
-                cols.append(node_id[i][u])
-                rows.append(id)
-
-                edges.append((node_id[i][u], id))                
-                edge_cost.append(values[-1])
-                n_temp += 1
-                
-from scipy.sparse import csr_matrix, spdiags                                   
-W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
-
-inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
-D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
-lam = 100
-lhs = D + lam * (D - W)
-from scipy.sparse import eye
-
-#lhs = eye(n_node) - (inv_D.dot(W))
-
-from scipy.sparse.linalg import spsolve,lsmr
-sal = spsolve(lhs, D.dot(np.array(rhs)))
-
-
-# sal = np.array(rhs)
-# A = inv_D.dot(W)
-
-# for i in range(10000):
-#     sal = A.dot(sal)
-
-#sal = (sal - np.min(sal)) / (np.max(sal) - np.min(sal))        
-
-from skimage import img_as_ubyte
-
-count = 0
-masks = []
-ims = []
-sal_images = []
-for i in range(n_frames):
-    sal_image = np.zeros((r,c))
-
-    im = img_as_ubyte(imread(frames[i]))    
-    uni = np.unique(segs[i])
-    s = np.copy(sal[count:count+len(uni)])
-    s = (s - np.min(s)) / (np.max(s) - np.min(s))
-    thres = mean(s)
-    for (j,u) in enumerate(uni):
-        rs, cs = np.nonzero(segs[i] == u)
-        sal_image[rs,cs] = s[j]
-        # if s[j] < thres:
-        #     im[rs,cs] = (0,0,0)
-        count += 1
-
-    hst, bin_edges = np.histogram(sal_image.flatten(), bins=20)
-    thres = mean(sal_image[sal_image > bin_edges[1]])
-    im[sal_image < thres] = (0,0,0)
-    ims.append(im)
-    sal_images.append(sal_image)
-    masks.append(sal_image>thres)
-
-from copy import deepcopy
-#sp_feature = get_sp_feature_all_frames(frames,segs, lab_range)
-sp_feature = feats2mat(feats).astype(np.float32)
-#sp_feature = feats2mat(sp_feature).astype(np.float32)
-    
 #from segmentation import segment
 
 import numpy as np
@@ -287,9 +82,11 @@ def segment(frames, sp_features, pair_features ,segs, mask, max_iter, potts_weig
 #        unary = get_unary(frames, segs, saliency, sal_thres)
 
 
-        potts = potts_weight * np.array([[0,1],
-                                         [1,0]], np.float32)
-    
+        potts = potts_weight * np.array([[0.5,1],
+                                         [1,0.5]], np.float32) 
+        # potts = potts_weight * np.array([[0,1],
+        #                                  [1,0]], np.float32)
+   
         n_nodes = sp_features.shape[0]
         crf = DenseCRF(n_nodes, 2)
 
@@ -457,14 +254,152 @@ def segment2(frames, sp_features, segs, edges, edge_cost, mask, max_iter, potts_
                 
     return mask
 
+def superpixel_feature(image,seg,lab_range):
+    uni = np.unique(seg)
+    n = len(uni)
+    dim = 0
+    features = None
+    lab_image = rgb2lab(image)
+    gray = np.pad(rgb2gray(image), (7,7), 'symmetric')
+
+    n_bins = 20    
+    for (i,region) in enumerate(uni):
+        rows, cols = np.nonzero(seg == region)
+        rgbs = image[rows, cols, :]
+        labs = lab_image[rows, cols,:]
+        
+        #feature = np.empty(0)
+        feature = np.mean(rgbs, axis=0) / 13
+        center_y = np.mean(rows) / 60
+        center_x = np.mean(cols) / 60
+        feature = np.concatenate((feature,np.array([center_y,center_x])))
+                                  
+#        feature = np.concatenate((feature,np.min(rgbs, axis=0)))
+#       feature = np.concatenate((feature,np.max(rgbs, axis=0)))
+        # for c in range(3):
+        #     hist, bin_edges = np.histogram(rgbs[:,c], bins=n_bins, range=(0,256),normed=True )
+        #     feature = np.concatenate((feature, hist))
+        # for c in range(3):
+        #      hist, bin_edges = np.histogram(labs[:,c], bins=n_bins, range=(lab_range[c,0], lab_range[c,1]))
+        #      feature = np.concatenate((feature, hist))
+        #center_y = round(np.mean(rows))
+        #center_x = round(np.mean(cols))
+        # patch = gray[center_y:center_y+15, center_x:center_x+15]
+        # hog_feat = hog(patch,orientations=6,pixels_per_cell=(5,5), cells_per_block=(3,3))
+        # feature = np.concatenate((feature, hog_feat))
+        # feature = np.concatenate((feature, np.array([np.mean(rows)/image.shape[0], np.mean(cols)/image.shape[1]])))
+ #       feature = np.concatenate((feature, np.mean(rgbs, axis=0)))
+ #       feature = np.concatenate((feature, np.mean(labs, axis=0)))
+
+        if features == None:
+            dim = len(feature)
+            features = np.zeros((n, dim))
+            features[0] = feature
+        else:
+            features[i] = feature
+
+ #   return scale(features)
+
+    
+    return (features)
+
+def get_sp_feature_all_frames(frames, segs, lab_range):
+    feats = []
+    from skimage import img_as_ubyte
+    for (ii,im) in enumerate(frames):
+#        features = superpixel_feature((imread(im)), segs[ii], lab_range)
+        features = superpixel_feature(img_as_ubyte(imread(im)), segs[ii], lab_range)
+        feats.append(features)
+        
+    return feats
+
+def feats2mat(feats):
+    ret = feats[0]
+    for feat in feats[1:]:
+        ret = np.vstack((ret, feat))
+    return ret
+
+def get_feature_for_pairwise(frames, segs, adjs,lab_range):
+    print 'foo'
+    features = feats2mat(get_sp_feature_all_frames(frames, segs, lab_range))
+    new_features = np.zeros(features.shape)
+
+    return features
+
+name = 'monkeydog'
+#name = 'cheetah'
+
+imdir = '/home/masa/research/code/rgb/%s/' % name
+vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
+vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
+
+frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)[:-1]) if f.endswith(".png")] 
+from skimage.filter import vsobel,hsobel
+
+mag = np.sqrt(vx**2 + vy ** 2)
+r,c,n_frames = mag.shape
+sp_file = "../TSP/results/%s.mat" % name
+sp_label = loadmat(sp_file)["sp_labels"]
+segs,adjs,mappings = get_tsp(sp_label)
+lab_range = get_lab_range(frames)
+feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
+
+node_id = []
+
+id_count = 0
+loc_unary = loadmat('../FastVideoSegment/%s_loc.mat' % name)['loc']
+saliency = loadmat('/home/masa/research/saliency/PCA_Saliency_CVPR2013/%s.mat' % name)['out']
+
+init_sal = loc_unary * saliency[:,:,:loc_unary.shape[2]]
+sal = []
+for i in range(n_frames):
+
+    uni = np.unique(segs[i])
+    for (j,u) in enumerate(uni):
+        rs, cs = np.nonzero(segs[i] == u)
+        sal.append(np.mean(init_sal[:,:,i][rs,cs]))
+
+
+        
+count = 0
+masks = []
+ims = []
+sal_images = []
+for i in range(n_frames):
+    sal_image = np.zeros((r,c))
+
+    im = img_as_ubyte(imread(frames[i]))    
+    uni = np.unique(segs[i])
+    s = np.copy(sal[count:count+len(uni)])
+    s = (s - np.min(s)) / (np.max(s) - np.min(s))
+    thres = mean(s)
+    for (j,u) in enumerate(uni):
+        rs, cs = np.nonzero(segs[i] == u)
+        sal_image[rs,cs] = s[j]
+        # if s[j] < thres:
+        #     im[rs,cs] = (0,0,0)
+        count += 1
+
+    hst, bin_edges = np.histogram(sal_image.flatten(), bins=20)
+    thres = mean(sal_image[sal_image > bin_edges[1]])
+    im[sal_image < thres] = (0,0,0)
+    ims.append(im)
+    sal_images.append(sal_image)
+    masks.append(sal_image>thres)
+
+from copy import deepcopy
+#sp_feature = get_sp_feature_all_frames(frames,segs, lab_range)
+sp_feature = feats2mat(feats).astype(np.float32)
+#sp_feature = feats2mat(sp_feature).astype(np.float32)
+    
 
 #sp_feature2  = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32)
 pair_feature = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32) 
 final_mask = segment(frames, sp_feature, pair_feature, segs, deepcopy(masks), 3, 3, 20)
 
-final_mask2 = segment2(frames, sp_feature, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 3, adjs,lab_range)
+#final_mask2 = segment2(frames, sp_feature, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 3, adjs,lab_range)
 
-#final_mask2 = final_mask
+final_mask2 = final_mask
 from video_util import *
 
 for i in range(n_frames):

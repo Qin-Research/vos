@@ -11,9 +11,10 @@ from joblib import Parallel, delayed
 from skimage.segmentation import find_boundaries
 from video_graph import *
 
-name = 'cheetah'
-name = 'bmx'
-name = 'hummingbird'
+#name = 'soldier'
+name = 'drift'
+#name = 'bmx'
+#name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -112,4 +113,4 @@ for j in range(vx.shape[2]):
 #     imshow(im,cmap=gray())
 #     show()
                         
-#np.save('sal_%s.npy' % name, sal)
+np.save('sal_%s.npy' % name, sal)
