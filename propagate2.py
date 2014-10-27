@@ -60,20 +60,20 @@ def segment(frames, sp_features, pair_features ,segs, mask, max_iter, potts_weig
 
         from sklearn.mixture import GMM
 
-        # fg_gmm = GMM(5)
-        # bg_gmm = GMM(7)
+        fg_gmm = GMM(5)
+        bg_gmm = GMM(7)
 
-        # fg_gmm.fit(sp_features[labels == 0])
-        # bg_gmm.fit(sp_features[labels == 1])
+        fg_gmm.fit(sp_features[labels == 0])
+        bg_gmm.fit(sp_features[labels == 1])
         
         prob = rf.predict_proba(sp_features)
         np.save('prob%d.npy' % i, prob)
 
 #        prob[:, 0] += sal
-        # prob_fg = np.dot(fg_gmm.predict_proba(sp_features), fg_gmm.weights_).reshape(-1,1)
-        # prob_bg = np.dot(bg_gmm.predict_proba(sp_features), bg_gmm.weights_).reshape(-1,1)
-        # prob_gmm = np.hstack((prob_fg, prob_bg))
-        # np.save('prob_gmm%d.npy' % i, prob_gmm)
+        prob_fg = np.dot(fg_gmm.predict_proba(sp_features), fg_gmm.weights_).reshape(-1,1)
+        prob_bg = np.dot(bg_gmm.predict_proba(sp_features), bg_gmm.weights_).reshape(-1,1)
+        prob_gmm = np.hstack((prob_fg, prob_bg))
+        np.save('prob_gmm%d.npy' % i, prob_gmm)
         
         eps = 1e-7
         unary = -np.log(prob+eps).astype(np.float32)
@@ -129,7 +129,7 @@ def compare(mask1,mask2):
 
         show()
         
-def plot_prob(prob,frames, rgb_mean, segs):
+def plot_prob(prob,prob2, frames,segs):
     count = 0
     for j in range(len(segs)-1):
         uni = np.unique(segs[j])
@@ -137,27 +137,36 @@ def plot_prob(prob,frames, rgb_mean, segs):
         figure(figsize = (20,18))
         prob_image1 = np.zeros(segs[j].shape)
         prob_image2 = np.zeros(segs[j].shape)
+        prob_image3 = np.zeros(segs[j].shape)
+        prob_image4 = np.zeros(segs[j].shape)
+        
         im = img_as_ubyte(imread(frames[j]))        
         for u in uni:
             rows, cols = np.nonzero(segs[j] == u)
             prob_image1[rows, cols] = prob[count,0]
             prob_image2[rows, cols] = prob[count,1]
-            im[rows, cols] = rgb_mean[count]            
+            prob_image3[rows, cols] = prob2[count,0]
+            prob_image4[rows, cols] = prob2[count,1]
+            
             count += 1
 
         print j
-        subplot(1,4,1)
+        subplot(1,5,1)
+#        imshow(imread(frames[j]))
+        imshow(prob_image1 + prob_image3)
+        
+        subplot(1,5,2)
         imshow(prob_image1)
 
-        subplot(1,4,2)
+        subplot(1,5,3)
         imshow(prob_image2)
 
-        subplot(1,4,3)
-        imshow(imread(frames[j]))
+        subplot(1,5,4)
+        imshow(prob_image3)
 
-        subplot(1,4,4)
-        imshow(im)
-                                     
+        subplot(1,5,5)
+        imshow(prob_image4)
+                                             
         
         show()
 
@@ -326,7 +335,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
 
     return features
 
-name = 'monkeydog'
+name = 'bmx'
 #name = 'cheetah'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name

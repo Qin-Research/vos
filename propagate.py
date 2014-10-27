@@ -3,7 +3,7 @@ import numpy as np
 from sys import argv
 from time import time
 import os
-from scipy.io import loadmat
+from scipy.io import loadmat,savemat
 from sklearn.preprocessing import scale
 from skimage.color import rgb2gray,rgb2lab
 from skimage.feature import hog
@@ -86,7 +86,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
     return features
 
 #name = 'girl'
-name = 'cheetah'
+name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -100,6 +100,12 @@ r,c,n_frames = mag.shape
 sp_file = "../TSP/results/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
 segs,adjs,mappings = get_tsp(sp_label)
+sp_mat = np.empty((r,c,n_frames))
+for i in range(n_frames):
+    sp_mat[:,:,i] = segs[i]
+
+savemat('sp_%s.mat' % name, {'superpixels':sp_mat})    
+
 lab_range = get_lab_range(frames)
 feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
 
@@ -123,7 +129,6 @@ cols = []
 values = []
 n_node = 0
 
-sigma2 = 10000
 edges = []
 edge_cost = []
 n_temp = 0
@@ -139,7 +144,8 @@ for i in range(n_frames):
             if node_id[i][u] == node_id[i][n_id]: continue
             rows.append(node_id[i][u])
             cols.append(node_id[i][n_id])
-            values.append(np.exp(-np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2 / (sigma2)))
+#            values.append(np.exp(-np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2 / (sigma2)))
+            values.append(np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2)
             values.append(values[-1])
             cols.append(node_id[i][u])
             rows.append(node_id[i][n_id])
@@ -154,7 +160,7 @@ for i in range(n_frames):
                 if node_id[i][u] == id: continue
                 rows.append(node_id[i][u])
                 cols.append(id)
-                values.append(np.exp(-np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2 / sigma2))
+                values.append(np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2)
                 values.append(values[-1])
                 cols.append(node_id[i][u])
                 rows.append(id)
@@ -162,7 +168,11 @@ for i in range(n_frames):
                 edges.append((node_id[i][u], id))                
                 edge_cost.append(values[-1])
                 n_temp += 1
-                
+
+sigma2 = 2 * np.mean(edge_cost)
+values = np.exp(-np.array(values) / sigma2)
+edge_cost = np.exp(-np.array(edge_cost) / sigma2)
+
 from scipy.sparse import csr_matrix, spdiags                                   
 W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
 
