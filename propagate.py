@@ -86,7 +86,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
     return features
 
 #name = 'girl'
-name = 'bmx'
+name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -108,7 +108,7 @@ savemat('sp_%s.mat' % name, {'superpixels':sp_mat})
 
 lab_range = get_lab_range(frames)
 feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
-
+sp_feature = feats2mat(feats).astype(np.float32)
 node_id = []
 
 id_count = 0
@@ -226,7 +226,7 @@ for i in range(n_frames):
 
 from copy import deepcopy
 #sp_feature = get_sp_feature_all_frames(frames,segs, lab_range)
-sp_feature = feats2mat(feats).astype(np.float32)
+
 #sp_feature = feats2mat(sp_feature).astype(np.float32)
     
 #from segmentation import segment

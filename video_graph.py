@@ -940,6 +940,10 @@ def get_dominant_angle(angle):
     hist,bins = np.histogram(angle.flatten(), bins=20)
     return bins[np.argmax(hist)]
 
+def get_dominant_motion(motion):
+    hist,bins = np.histogram(motion.flatten(), bins=20)
+    return bins[np.argmax(hist)]
+
 
 def get_unary(frames, segs, saliency, sal_thres):
 

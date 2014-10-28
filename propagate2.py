@@ -335,7 +335,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
 
     return features
 
-name = 'bmx'
+name = 'hummingbird'
 #name = 'cheetah'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -356,13 +356,17 @@ feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
 node_id = []
 
 id_count = 0
+
 loc_unary = loadmat('../FastVideoSegment/%s_loc.mat' % name)['loc']
+
 saliency = loadmat('/home/masa/research/saliency/PCA_Saliency_CVPR2013/%s.mat' % name)['out']
 
 init_sal = loc_unary * saliency[:,:,:loc_unary.shape[2]]
 sal = []
-for i in range(n_frames):
 
+for i in range(n_frames):
+    loc_image1 = np.zeros((r,c))
+    loc_image2 = np.zeros((r,c))
     uni = np.unique(segs[i])
     for (j,u) in enumerate(uni):
         rs, cs = np.nonzero(segs[i] == u)

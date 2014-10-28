@@ -4,6 +4,7 @@ import numpy as np
 from sys import argv
 from time import time
 import os
+from skimage import img_as_ubyte
 from scipy.io import loadmat
 from sklearn.preprocessing import scale
 from skimage.color import rgb2gray,rgb2lab
@@ -11,7 +12,8 @@ from skimage.feature import hog
 from joblib import Parallel, delayed
 from skimage.segmentation import find_boundaries
 from video_graph import *
-
+from IPython.core.pylabtools import figsize
+from video_util import *
 # from krahenbuhl2013 import DenseCRF
 # #prop = proposals.Proposal( setupBaseline( 130, 5, 0.8 ) )
 # #prop = proposals.Proposal( setupBaseline( 150, 7, 0.85 ) )
@@ -20,9 +22,12 @@ from video_graph import *
 
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
-name = 'hummingbird'
-name = 'bmx'
+name = 'soldier'
 #name = 'cheetah'
+name = 'cheetah'
+def get_dominant_motion(motion):
+    hist,bins = np.histogram(motion.flatten(), bins=500)
+    return bins[np.argmax(hist)]
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -30,37 +35,73 @@ vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
 
 frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)[:-1]) if f.endswith(".png")]
 from skimage.filter import vsobel,hsobel
+sp_file = "../TSP/results/%s.mat" % name
+sp_label = loadmat(sp_file)["sp_labels"]
+r,c,n = sp_label.shape
+segs,adjs,mappings = get_tsp(sp_label)
 
-mag = np.sqrt(vx**2 + vy ** 2)
-angle = np.arctan2(vy,vx) / np.pi * 180
+# mag = np.sqrt(vx**2 + vy ** 2)
+# angle = np.arctan2(vy,vx) / np.pi * 180
 
-for i in range(len(frames)):
-    print i
-    u = vx[:,:,i]
-    v = vy[:,:,i]
-
-    u_x = hsobel(u)
-    u_y = vsobel(u)
-    v_x = hsobel(v)
-    v_y = vsobel(v)
-
-    # a_u = hsobel(angle[:,:,i])
-    # a_v = vsobel(angle[:,:,i])
-
-    figure(figsize=(21,18))
-
-    subplot(1,3,1)
-    grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
-    imshow(grad_mag,cmap=jet())
-
-    subplot(1,3,2)
-    hst, bin_edges = np.histogram(grad_mag.flatten(), bins=20)    
-    imshow(grad_mag >= bin_edges[1],cmap=gray())
-
-    subplot(1,3,3)
-    from scipy.ndimage.morphology import distance_transform_edt
+# for i in range(len(frames)):
+#     print i
+#     mag_contrast = np.zeros(mag.shape[:2])
+#     angle_contrast = np.zeros(mag.shape[:2])
+#     uni = np.unique(segs[i])
+#     dominant_angle = get_dominant_angle(angle[:,:,i])
+#     dominant_motion = get_dominant_motion(mag[:,:,i])
     
-    imshow(distance_transform_edt(1 - (grad_mag >= bin_edges[1] )))
+#     for u in uni:
+#         rs, cs = np.nonzero(segs[i] == u)
+#         mag_contrast[rs,cs] = np.mean(np.abs(mag[rs,cs,i] - dominant_motion))
+#         angle_contrast[rs,cs] = np.mean(np.abs(angle[rs,cs,i]  - dominant_angle))     
+    
+#     u = vx[:,:,i]
+#     v = vy[:,:,i]
+
+#     u_x = hsobel(u)
+#     u_y = vsobel(u)
+#     v_x = hsobel(v)
+#     v_y = vsobel(v)
+
+
+#     # a_u = hsobel(angle[:,:,i])
+#     # a_v = vsobel(angle[:,:,i])
+
+#     figure(figsize(21,18))
+#     subplot(1,5,1)
+#     imshow(angle[:,:,i])
+
+#     subplot(1,5,2)
+#     imshow(mag[:,:,i])
+
+#     subplot(1,5,3)
+#     imshow(angle_contrast)
+
+#     subplot(1,5,4)
+#     imshow(mag_contrast)
+
+#     gamma = 0.5
+#     coeff = (1-np.exp(-gamma*dominant_motion)) / (1+np.exp(-gamma*dominant_motion))
+#     print coeff, dominant_motion
+#     subplot(1,5,5)
+#     imshow(mag_contrast/np.max(mag_contrast) + coeff * angle_contrast / np.max(angle_contrast))
+            
+#     show()
+    # figure(figsize=(21,18))
+
+    # subplot(1,3,1)
+    # grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
+    # imshow(grad_mag,cmap=jet())
+
+    # subplot(1,3,2)
+    # hst, bin_edges = np.histogram(grad_mag.flatten(), bins=20)    
+    # imshow(grad_mag >= bin_edges[1],cmap=gray())
+
+    # subplot(1,3,3)
+    # from scipy.ndimage.morphology import distance_transform_edt
+    
+#    imshow(distance_transform_edt(1 - (grad_mag >= bin_edges[1] )))
 
 #    imsave('%05d.png' % i, grad_mag)
 
@@ -68,22 +109,21 @@ for i in range(len(frames)):
     # subplot(1,2,2)
     # imshow(np.sqrt(a_u**2 + a_v **2))
     # colorbar()
-    show()
     
 gt = get_segtrack_gt(name)
 
-# #gt = get_segtrack_gt(name)
-#lab_range = get_lab_range(frames)
+# # #gt = get_segtrack_gt(name)
+# #lab_range = get_lab_range(frames)
 
-#segs,adjs = video_superpixel(frames,detector)
-sp_file = "../TSP/results/%s.mat" % name
-sp_label = loadmat(sp_file)["sp_labels"]
-segs,adjs,mappings = get_tsp(sp_label)
-r,c,_ = sp_label.shape
+# #segs,adjs = video_superpixel(frames,detector)
+# sp_file = "../TSP/results/%s.mat" % name
+# sp_label = loadmat(sp_file)["sp_labels"]
+# segs,adjs,mappings = get_tsp(sp_label)
+# r,c,_ = sp_label.shape
 
-from collections import defaultdict
-from skimage.segmentation import mark_boundaries
-frame_num = 21
+# from collections import defaultdict
+# from skimage.segmentation import mark_boundaries
+# frame_num = 21
 #imshow(mark_boundaries(imread(frames[frame_num]),segs[frame_num])) 
 # count = defaultdict(int)
 # for i in range(len(frames)):
@@ -106,24 +146,38 @@ for i in range(len(frames)):
     label = np.zeros((r,c), np.bool)
     labels.append(label)
 
+g = gt[0][0]
+if len(gt) > 1:  g+= gt[1][0]
+uni = np.unique(sp_label[:,:,0])
 
-angle_thres = 20        
-for i in range(len(frames)-1):
+gt_label = []
+for u in uni:
+    rows, cols = np.nonzero(sp_label[:,:,0] == u)
+    gt_ratio = np.mean(g[rows, cols])
+    if gt_ratio > 0.8:
+        gt_label.append(u)
+
+                     
+# angle_thres = 20        
+for i in range(len(frames)):
+
+    for l in gt_label:
+       labels[i][sp_label[:,:,i] == l] = True
     
-    dead = setdiff1d(np.unique(sp_label[:,:,i]), np.unique(sp_label[:,:,i+1]))        
-    new = setdiff1d(np.unique(sp_label[:,:,i+1]), np.unique(sp_label[:,:,i]))
+#     dead = setdiff1d(np.unique(sp_label[:,:,i]), np.unique(sp_label[:,:,i+1]))        
+#     new = setdiff1d(np.unique(sp_label[:,:,i+1]), np.unique(sp_label[:,:,i]))
     
-    dominant_angle = get_dominant_angle(angle[:,:,i])
+# #    dominant_angle = get_dominant_angle(angle[:,:,i])
     
-    for d in dead:
-        mask = segs[i] == mappings[i][d]
-        if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
-           labels[i][mask] = 1
+#     for d in dead:
+#         mask = segs[i] == mappings[i][d]
+# #        if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
+#         labels[i][mask] = 1
            
-    for n in new:
-        mask = segs[i+1] == mappings[i+1][n]
-        if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
-           labels[i+1][mask] = 1
+#     for n in new:
+#         mask = segs[i+1] == mappings[i+1][n]
+# #        if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
+#         labels[i+1][mask] = 1
 
     # for d in dead:
     #     rows,cols = np.nonzero(segs[i] == mappings[i][d])
@@ -139,22 +193,18 @@ for i in range(len(frames)-1):
                    
         
 for (i,l) in enumerate(labels):
-    figure(figsize(12,9))
 #    print i,get_dominant_angle(angle[:,:,i])
  #   imsave("%05d.png" % i, l)
   #  subplot(1,2,1)
-    imshow(angle[:,:,i], cmap=jet())
-    colorbar()
-    axis('off')
-
     # subplot(1,2,2)
-    # imshow(l, cmap=gray())
+    im = img_as_ubyte(imread(frames[i]))
+    imshow(alpha_composite(im, mask_to_rgb(l, (0,255,0))), cmap=gray())
     # axis("off")
     show()
                 
-    #     seg.append(mappings[i][d])
-    # for n in new:
-    #     seg.append(mappings[i+1][n])
+#     #     seg.append(mappings[i][d])
+#     # for n in new:
+#     #     seg.append(mappings[i+1][n])
         
 #feats = get_sp_feature_all_frames(frames,segs, lab_range)
 #unary,prob,rescaled,unnom = flow_unary(frames, segs, vx,vy)
