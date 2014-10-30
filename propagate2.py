@@ -359,7 +359,16 @@ id_count = 0
 
 loc_unary = loadmat('../FastVideoSegment/%s_loc.mat' % name)['loc']
 
-saliency = loadmat('/home/masa/research/saliency/PCA_Saliency_CVPR2013/%s.mat' % name)['out']
+saliency_fg = loadmat('/home/masa/research/saliency/CVPR2014_HDCT/%s.mat' % name)['sals']
+saliency_bg = loadmat('/home/masa/research/saliency/CVPR2014_HDCT/%s_bg.mat' % name)['sals']
+
+gt = get_segtrack_gt(name)
+g = gt[0][0]
+
+if len(gt)>1: g += gt[1][0]
+
+saliency_fg[:,:,0] = g    
+saliency_bg[:,:,0] = 1 - g    
 
 init_sal = loc_unary * saliency[:,:,:loc_unary.shape[2]]
 sal = []

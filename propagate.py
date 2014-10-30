@@ -111,9 +111,17 @@ feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
 sp_feature = feats2mat(feats).astype(np.float32)
 node_id = []
 
-id_count = 0
-init_sal = np.load('sal_%s.npy' % name)
+
+#init_sal = np.load('sal_%s.npy' % name)
+init_sal = loadmat('/home/masa/research/saliency/CVPR2014_HDCT/%s.mat' % name)['sals']
+gt = get_segtrack_gt(name)
+g = gt[0][0]
+
+if len(gt)>1: g += gt[1][0]
+    
+init_sal[:,:,0] = g
 rhs = []
+id_count = 0
 for i in range(n_frames):
     uni = np.unique(segs[i])
     id_dict = {}
@@ -169,12 +177,12 @@ for i in range(n_frames):
                 edge_cost.append(values[-1])
                 n_temp += 1
 
-sigma2 = 2 * np.mean(edge_cost)
-values = np.exp(-np.array(values) / sigma2)
+sigma2 = 3000
+values2 = np.exp(-np.array(values) / sigma2)
 edge_cost = np.exp(-np.array(edge_cost) / sigma2)
 
 from scipy.sparse import csr_matrix, spdiags                                   
-W = csr_matrix((values, (rows, cols)), shape=(n_node, n_node))
+W = csr_matrix((values2, (rows, cols)), shape=(n_node, n_node))
 
 inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
 D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
@@ -469,10 +477,10 @@ def segment2(frames, sp_features, segs, edges, edge_cost, mask, max_iter, potts_
 
 
 #sp_feature2  = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32)
-pair_feature = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32) 
-final_mask = segment(frames, sp_feature, pair_feature, segs, deepcopy(masks), 3, 3, 20)
+# pair_feature = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32) 
+# final_mask = segment(frames, sp_feature, pair_feature, segs, deepcopy(masks), 3, 3, 20)
 
-final_mask2 = segment2(frames, sp_feature, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 3, adjs,lab_range)
+# final_mask2 = segment2(frames, sp_feature, segs, np.array(edges), edge_cost, deepcopy(masks), 5, 3, adjs,lab_range)
 
 #final_mask2 = final_mask
 from video_util import *
@@ -484,25 +492,25 @@ for i in range(n_frames):
 #    im[final_mask[i].astype(np.bool) == 0] = (0,0,0)
 #    im2[final_mask2[i].astype(np.bool) == 0] = (0,0,0)
     im = img_as_ubyte(imread(frames[i]))            
-    subplot(1,5,1)
+    subplot(1,2,1)
     imshow(init_sal[:,:,i],cmap=gray())
     axis("off")
 
-    subplot(1,5,2)
+    subplot(1,2,2)
     imshow(sal_images[i],cmap=gray())
     axis("off")    
 
-    subplot(1,5,3)
-    imshow(ims[i],cmap=gray())
-    axis("off")    
+    # subplot(1,5,3)
+    # imshow(ims[i],cmap=gray())
+    # axis("off")    
 
-    subplot(1,5,4)
-    imshow(alpha_composite(im, mask_to_rgb(final_mask[i], (0,255,0))),cmap=gray())
-    axis("off")    
+    # subplot(1,5,4)
+    # imshow(alpha_composite(im, mask_to_rgb(final_mask[i], (0,255,0))),cmap=gray())
+    # axis("off")    
 
-    subplot(1,5,5)
-    imshow(alpha_composite(im, mask_to_rgb(final_mask2[i], (0,255,0))),cmap=gray())
-    axis("off")    
+    # subplot(1,5,5)
+    # imshow(alpha_composite(im, mask_to_rgb(final_mask2[i], (0,255,0))),cmap=gray())
+    # axis("off")    
     
 
     show() 
