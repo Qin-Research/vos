@@ -15,6 +15,7 @@ video_segment_dir = "/home/masa/research/video_code/video_segment/"
 converter = video_segment_dir+"converter/segment_converter"
 seg_tree = video_segment_dir + "build/seg_tree_sample"
 ldof_cpu = "/home/masa/research/flow/pami2010LibLinux64/demo_ldof"
+deepflow_dir = "/home/masa/research/flow/DeepFlow_release1.0.1"
 color_flow = '/home/masa/research/code/flow_util/color_flow'
 
 def alpha_composite(img, mask, alpha=0.5):
@@ -156,6 +157,41 @@ def get_flow(im1, im2):
         os.remove(f)
     return flow, flow_img
 
+def deep_flow(im1, im2):
+    from skimage.io import imsave
+    tmp1 = randstr(10)+'.png'
+    tmp2 = randstr(10)+'.png'
+    tmp3 = randstr(10)+'.flo'
+    tmp4 = randstr(10)+'.npy'
+    tmp5 = randstr(10)+'.png'
+    
+    imsave(tmp1, im1)
+    imsave(tmp2, im2)
+
+    # os.system('%s %s %s %s %s' % (ldof_cpu, tmp1, tmp2, tmp3, tmp4))
+    # os.system('%s %s %s' % (color_flow, tmp3, tmp5))
+    import subprocess
+
+    p1 = subprocess.Popen(["%s/deepmatching-static" % deepflow_dir, tmp1, tmp2, "-iccv_settings"], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(["python", "%s/rescore.py" % deepflow_dir, tmp1,tmp2 ], stdin=p1.stdout, stdout=subprocess.PIPE)
+    command = "%s/deepflow-static %s %s %s" % (deepflow_dir, tmp1,tmp2,tmp3) +  " -matchf -sintel"
+    import shlex    
+    p3 = subprocess.Popen(shlex.split(command), stdin=p2.stdout)
+    
+    p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
+    p3.wait()
+#    output,err = p3.communicate()
+
+    command = "%s/color %s %s" % (deepflow_dir, tmp3, tmp4)
+    print command
+    os.system(command)
+    os.system('%s %s %s' % (color_flow, tmp3, tmp5))
+    flow = np.load(tmp4)
+    flow_img = imread(tmp5)
+    for f in [tmp1, tmp2, tmp3, tmp4, tmp5]:
+         os.remove(f)
+    return flow,flow_img
+
     
 def flow_dir(dir_name):
     f_names = [os.path.join(dir_name, f) for f in os.listdir(dir_name)]
@@ -170,7 +206,7 @@ def flow_dir(dir_name):
         im1 = imread(cur)
         im2 = imread(nxt)
 
-        flow,img = get_flow(im1,im2)
+        flow,img = deep_flow(im1,im2)
         imsave("%05d.flo.color.png" % i, img)
         vx[:,:,i] = flow[:,:,0]
         vy[:,:,i] = flow[:,:,1]
