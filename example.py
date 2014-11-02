@@ -22,9 +22,8 @@ from video_util import *
 
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
-name = 'soldier'
+name = 'bmx'
 #name = 'cheetah'
-name = 'cheetah'
 def get_dominant_motion(motion):
     hist,bins = np.histogram(motion.flatten(), bins=500)
     return bins[np.argmax(hist)]
@@ -40,75 +39,78 @@ sp_label = loadmat(sp_file)["sp_labels"]
 r,c,n = sp_label.shape
 segs,adjs,mappings = get_tsp(sp_label)
 
-# mag = np.sqrt(vx**2 + vy ** 2)
-# angle = np.arctan2(vy,vx) / np.pi * 180
+mag = np.sqrt(vx**2 + vy ** 2)
+angle = np.arctan2(vy,vx) / np.pi * 180
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 
-# for i in range(len(frames)):
-#     print i
-#     mag_contrast = np.zeros(mag.shape[:2])
-#     angle_contrast = np.zeros(mag.shape[:2])
-#     uni = np.unique(segs[i])
-#     dominant_angle = get_dominant_angle(angle[:,:,i])
-#     dominant_motion = get_dominant_motion(mag[:,:,i])
+for i in range(len(frames)):
+    print i
+    mag_contrast = np.zeros(mag.shape[:2])
+    angle_contrast = np.zeros(mag.shape[:2])
+    uni = np.unique(segs[i])
+    dominant_angle = get_dominant_angle(angle[:,:,i])
+    dominant_motion = get_dominant_motion(mag[:,:,i])
     
-#     for u in uni:
-#         rs, cs = np.nonzero(segs[i] == u)
-#         mag_contrast[rs,cs] = np.mean(np.abs(mag[rs,cs,i] - dominant_motion))
-#         angle_contrast[rs,cs] = np.mean(np.abs(angle[rs,cs,i]  - dominant_angle))     
+    for u in uni:
+        rs, cs = np.nonzero(segs[i] == u)
+        mag_contrast[rs,cs] = np.mean(np.abs(mag[rs,cs,i] - dominant_motion))
+        angle_contrast[rs,cs] = np.mean(np.abs(angle[rs,cs,i]  - dominant_angle))     
     
-#     u = vx[:,:,i]
-#     v = vy[:,:,i]
+    u = vx[:,:,i]
+    v = vy[:,:,i]
 
-#     u_x = hsobel(u)
-#     u_y = vsobel(u)
-#     v_x = hsobel(v)
-#     v_y = vsobel(v)
+    u_x = hsobel(u)
+    u_y = vsobel(u)
+    v_x = hsobel(v)
+    v_y = vsobel(v)
 
 
-#     # a_u = hsobel(angle[:,:,i])
-#     # a_v = vsobel(angle[:,:,i])
+    # a_u = hsobel(angle[:,:,i])
+    # a_v = vsobel(angle[:,:,i])
 
-#     figure(figsize(21,18))
-#     subplot(1,5,1)
-#     imshow(angle[:,:,i])
+    # figure(figsize(21,18))
+    # subplot(1,5,1)
+    # imshow(angle[:,:,i])
 
-#     subplot(1,5,2)
-#     imshow(mag[:,:,i])
+    # subplot(1,5,2)
+    # imshow(mag[:,:,i])
 
-#     subplot(1,5,3)
-#     imshow(angle_contrast)
+    # subplot(1,5,3)
+    # imshow(angle_contrast)
 
-#     subplot(1,5,4)
-#     imshow(mag_contrast)
+    # subplot(1,5,4)
+    # imshow(mag_contrast)
 
-#     gamma = 0.5
-#     coeff = (1-np.exp(-gamma*dominant_motion)) / (1+np.exp(-gamma*dominant_motion))
-#     print coeff, dominant_motion
-#     subplot(1,5,5)
-#     imshow(mag_contrast/np.max(mag_contrast) + coeff * angle_contrast / np.max(angle_contrast))
+    # gamma = 0.5
+    # coeff = (1-np.exp(-gamma*dominant_motion)) / (1+np.exp(-gamma*dominant_motion))
+    # print coeff, dominant_motion
+    # subplot(1,5,5)
+    # imshow(mag_contrast/np.max(mag_contrast) + coeff * angle_contrast / np.max(angle_contrast))
             
-#     show()
+    # show()
     # figure(figsize=(21,18))
 
-    # subplot(1,3,1)
-    # grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
-    # imshow(grad_mag,cmap=jet())
+    grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
 
-    # subplot(1,3,2)
-    # hst, bin_edges = np.histogram(grad_mag.flatten(), bins=20)    
-    # imshow(grad_mag >= bin_edges[1],cmap=gray())
+    imshow(grad_mag,cmap=jet())
+        
+    show()
 
-    # subplot(1,3,3)
-    # from scipy.ndimage.morphology import distance_transform_edt
+   #  subplot(1,3,2)
+   #  hst, bin_edges = np.histogram(grad_mag.flatten(), bins=20)    
+   #  imshow(grad_mag >= bin_edges[1],cmap=gray())
+
+   #  subplot(1,3,3)
+   #  from scipy.ndimage.morphology import distance_transform_edt
     
-#    imshow(distance_transform_edt(1 - (grad_mag >= bin_edges[1] )))
+   # imshow(distance_transform_edt(1 - (grad_mag >= bin_edges[1] )))
 
-#    imsave('%05d.png' % i, grad_mag)
+   # imsave('%05d.png' % i, grad_mag)
 
 
-    # subplot(1,2,2)
-    # imshow(np.sqrt(a_u**2 + a_v **2))
-    # colorbar()
+   #  subplot(1,2,2)
+   #  imshow(np.sqrt(a_u**2 + a_v **2))
+   #  colorbar()
     
 gt = get_segtrack_gt(name)
 
@@ -140,29 +142,29 @@ gt = get_segtrack_gt(name)
 #         if np.sum(sp_label[:,:,i] == l) > 0:
 #             bg_count[l] += 1
 
-labels = []
+# labels = []
 
-for i in range(len(frames)):
-    label = np.zeros((r,c), np.bool)
-    labels.append(label)
+# for i in range(len(frames)):
+#     label = np.zeros((r,c), np.bool)
+#     labels.append(label)
 
-g = gt[0][0]
-if len(gt) > 1:  g+= gt[1][0]
-uni = np.unique(sp_label[:,:,0])
+# g = gt[0][0]
+# if len(gt) > 1:  g+= gt[1][0]
+# uni = np.unique(sp_label[:,:,0])
 
-gt_label = []
-for u in uni:
-    rows, cols = np.nonzero(sp_label[:,:,0] == u)
-    gt_ratio = np.mean(g[rows, cols])
-    if gt_ratio > 0.8:
-        gt_label.append(u)
+# gt_label = []
+# for u in uni:
+#     rows, cols = np.nonzero(sp_label[:,:,0] == u)
+#     gt_ratio = np.mean(g[rows, cols])
+#     if gt_ratio > 0.8:
+#         gt_label.append(u)
 
                      
-# angle_thres = 20        
-for i in range(len(frames)):
+# # angle_thres = 20        
+# for i in range(len(frames)):
 
-    for l in gt_label:
-       labels[i][sp_label[:,:,i] == l] = True
+#     for l in gt_label:
+#        labels[i][sp_label[:,:,i] == l] = True
     
 #     dead = setdiff1d(np.unique(sp_label[:,:,i]), np.unique(sp_label[:,:,i+1]))        
 #     new = setdiff1d(np.unique(sp_label[:,:,i+1]), np.unique(sp_label[:,:,i]))
