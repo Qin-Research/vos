@@ -19,8 +19,8 @@ from sklearn.ensemble import RandomForestClassifier
 from krahenbuhl2013 import DenseCRF
 import ipdb
 
-def segment(frames, saliency_fg, saliency_bg, pair_features ,segs,potts_weight):
-    n_nodes = pair_features.shape[0]
+def segment(unary, frames, saliency_fg, saliency_bg, pair_features ,segs,potts_weights,potts):
+    n_nodes = pair_features[0].shape[0]
     prob_fg = np.zeros(n_nodes)
     prob_bg = np.zeros(n_nodes)
 
@@ -34,21 +34,22 @@ def segment(frames, saliency_fg, saliency_bg, pair_features ,segs,potts_weight):
 
             count += 1
     
-    prob = np.hstack((prob_fg[:,np.newaxis], prob_bg[:, np.newaxis]))
+#    prob = np.hstack((prob_fg[:,np.newaxis], prob_bg[:, np.newaxis]))
+#    unary = np.hstack((prob_fg[:,np.newaxis], prob_bg[:, np.newaxis]))
     
     eps = 1e-7
-    unary = -np.log(prob+eps).astype(np.float32)
+ #   unary = -np.log(prob+eps).astype(np.float32)
 
 #    potts = potts_weight * np.array([[0.5,1],
                                  #    [1,0.5]], np.float32) 
-    potts = potts_weight * np.array([[0,1],
-                                     [1,0]], np.float32)
 
     crf = DenseCRF(n_nodes, 2)
 
     print 'Mean field inference ...'        
-    crf.set_unary_energy(unary)
-    crf.add_pairwise_energy(potts, np.ascontiguousarray(pair_features.astype(np.float32)))
+    crf.set_unary_energy(unary.astype(np.float32))
+
+    for (i,f) in enumerate(pair_features):
+      crf.add_pairwise_energy((potts_weight[i] * potts).astype(np.float32), np.ascontiguousarray(pair_features[i]).astype(np.float32))
     
     iteration = 10
 
@@ -206,8 +207,8 @@ def superpixel_feature(image,seg,lab_range):
         
         #feature = np.empty(0)
         feature = np.mean(rgbs, axis=0) / 13
-        center_y = np.mean(rows) / 60
-        center_x = np.mean(cols) / 60
+        center_y = np.mean(rows) / 80
+        center_x = np.mean(cols) / 80
         feature = np.concatenate((feature,np.array([center_y,center_x])))
                                   
         if features == None:
@@ -242,8 +243,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
 
     return features
 
-name = 'hummingbird'
-
+name = 'girl'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -268,90 +268,115 @@ g = gt[0][0]
 
 if len(gt)>1: g += gt[1][0]
 
-node_id = []
-id_count = 0
-for i in range(n_frames):
-    uni = np.unique(segs[i])
-    id_dict = {}
-    for u in uni:
-        rs, cs = np.nonzero(segs[i] == u)
-        id_dict[u] = id_count
-        id_count += 1
-    node_id.append(id_dict)
+# node_id = []
+# id_count = 0
+# for i in range(n_frames):
+#     uni = np.unique(segs[i])
+#     id_dict = {}
+#     for u in uni:
+#         rs, cs = np.nonzero(segs[i] == u)
+#         id_dict[u] = id_count
+#         id_count += 1
+#     node_id.append(id_dict)
     
-edges = []
-edge_cost = []
-n_temp = 0
-n_node = 0
-rows = []
-cols = []
-values = []
-for i in range(n_frames):
-    uni = np.unique(segs[i])
-    n_node += len(uni)
-    print i
-    for u in uni:
-        rs,cs = np.nonzero(segs[i] == u)
+# edges = []
+# edge_cost = []
+# n_temp = 0
+# n_node = 0
+# rows = []
+# cols = []
+# values = []
+# for i in range(n_frames):
+#     uni = np.unique(segs[i])
+#     n_node += len(uni)
+#     print i
+#     for u in uni:
+#         rs,cs = np.nonzero(segs[i] == u)
 
-        for (n_id,adj) in enumerate(adjs[i][u]):
-            if adj == False: continue
-            if node_id[i][u] == node_id[i][n_id]: continue
-            rows.append(node_id[i][u])
-            cols.append(node_id[i][n_id])
-#            values.append(np.exp(-np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2 / (sigma2)))
-            values.append(np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2)
-            values.append(values[-1])
-            cols.append(node_id[i][u])
-            rows.append(node_id[i][n_id])
+#         for (n_id,adj) in enumerate(adjs[i][u]):
+#             if adj == False: continue
+#             if node_id[i][u] == node_id[i][n_id]: continue
+#             rows.append(node_id[i][u])
+#             cols.append(node_id[i][n_id])
+# #            values.append(np.exp(-np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2 / (sigma2)))
+#             values.append(np.linalg.norm(feats[i][u] - feats[i][n_id]) ** 2)
+#             values.append(values[-1])
+#             cols.append(node_id[i][u])
+#             rows.append(node_id[i][n_id])
 
-            edges.append((node_id[i][u], node_id[i][n_id]))
-            edge_cost.append(values[-1])
+#             edges.append((node_id[i][u], node_id[i][n_id]))
+#             edge_cost.append(values[-1])
 
-        if i < n_frames -1:
-            if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
+#         if i < n_frames -1:
+#             if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
 
-                id = node_id[i+1][mappings[i+1][mappings[i][:u]]]
-                if node_id[i][u] == id: continue
-                rows.append(node_id[i][u])
-                cols.append(id)
-                values.append(np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2)
-                values.append(values[-1])
-                cols.append(node_id[i][u])
-                rows.append(id)
+#                 id = node_id[i+1][mappings[i+1][mappings[i][:u]]]
+#                 if node_id[i][u] == id: continue
+#                 rows.append(node_id[i][u])
+#                 cols.append(id)
+#                 values.append(np.linalg.norm(feats[i][:u] - feats[i+1][mappings[i+1][mappings[i][:u]]]) ** 2)
+#                 values.append(values[-1])
+#                 cols.append(node_id[i][u])
+#                 rows.append(id)
 
-                edges.append((node_id[i][u], id))                
-                edge_cost.append(values[-1])
-                n_temp += 1
+#                 edges.append((node_id[i][u], id))                
+#                 edge_cost.append(values[-1])
+#                 n_temp += 1
 
-sigma2 = 8000
-edge_cost = np.exp(-np.array(edge_cost) / sigma2)
-                
+# sigma2 = 8000
+# edge_cost = np.exp(-np.array(edge_cost) / sigma2)
+
+unary = loadmat("../FastVideoSegment/unary_%s.mat" % name)['unaryPotentials']
+unary = np.ascontiguousarray(unary[:-len(np.unique(segs[-1]))])
 saliency_fg[:,:,0] = g    
 saliency_bg[:,:,0] = 1 - g    
 lab_range = get_lab_range(frames)
-pair_feature = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32) 
-final_mask = segment(frames, saliency_fg*3, saliency_bg, pair_feature, segs, 3)
-final_mask2 = segment2(frames, saliency_fg*3, saliency_bg, segs, np.array(edges), edge_cost, 3, pair_feature.shape[0])
+pair_feature = get_feature_for_pairwise(frames, segs, adjs, lab_range).astype(np.float32)
+pair_features = [pair_feature]#, np.ascontiguousarray(pair_feature[:, 3:] * 60 / 3)]
+potts_weight = [100]#,3]
+potts = np.array([[0.5,1],
+                      [1,0.5]], np.float32)
 
+final_mask2 = segment(unary, frames, saliency_fg*3, saliency_bg, pair_features, segs, potts_weight,potts)
+#final_mask2 = segment2(frames, saliency_fg*3, saliency_bg, segs, np.array(edges), edge_cost, 3, pair_feature.shape[0])
+final_mask = final_mask2
 from video_util import *
 
+count = 0
 for i in range(n_frames):
+
+    # u_im1 = np.zeros((r,c))
+    # u_im2 = np.zeros((r,c))
+    # for u in np.unique(segs[i]):
+    #     rows, cols = np.nonzero(segs[i] == u)
+    #     u_im1[rows, cols] = unary[count, 0]
+    #     u_im2[rows, cols] = unary[count, 1]
+    #     count += 1
+        
     figure(figsize(20,18))
 
     print i
     im = img_as_ubyte(imread(frames[i]))            
-    subplot(1,3,1)
+    subplot(1,2,1)
     imshow(im)
     axis("off")
 
-    subplot(1,3,2)
+    subplot(1,2,2)
     imshow(alpha_composite(im, mask_to_rgb(final_mask[i], (0,255,0))),cmap=gray())        
     axis("off")    
 
-    subplot(1,3,3)
-    imshow(alpha_composite(im, mask_to_rgb(final_mask2[i], (0,255,0))),cmap=gray())        
-    axis("off")    
-    
+    # subplot(1,5,3)
+    # imshow(alpha_composite(im, mask_to_rgb(final_mask2[i], (0,255,0))),cmap=gray())        
+    # axis("off")    
+
+    # subplot(1,5,4)
+    # imshow(u_im1,jet())
+    # axis("off")        
+
+    # subplot(1,5,5)
+    # imshow(u_im2)
+    # axis("off")
+                
     show() 
 
 #    figure(figsize(20,15))

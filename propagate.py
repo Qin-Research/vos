@@ -86,7 +86,7 @@ def get_feature_for_pairwise(frames, segs, adjs,lab_range):
     return features
 
 #name = 'girl'
-name = 'hummingbird'
+name = 'soldier'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -100,8 +100,8 @@ r,c,n_frames = mag.shape
 sp_file = "../TSP/results/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
 segs,adjs,mappings = get_tsp(sp_label)
-sp_mat = np.empty((r,c,n_frames))
-for i in range(n_frames):
+sp_mat = np.empty((r,c,n_frames+1))
+for i in range(n_frames+1):
     sp_mat[:,:,i] = segs[i]
 
 savemat('sp_%s.mat' % name, {'superpixels':sp_mat})    
@@ -113,7 +113,8 @@ node_id = []
 
 
 #init_sal = np.load('sal_%s.npy' % name)
-init_sal = loadmat('/home/masa/research/saliency/CVPR2014_HDCT/%s.mat' % name)['sals']
+#init_sal = loadmat('/home/masa/research/saliency/CVPR2014_HDCT/%s.mat' % name)['sals']
+init_sal = loadmat('/home/masa/research/saliency/PCA_Saliency_CVPR2013/%s.mat' % name)['out']
 gt = get_segtrack_gt(name)
 g = gt[0][0]
 
