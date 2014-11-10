@@ -450,12 +450,14 @@ def relabel(sp_label):
                 
 def get_tsp(sp_label):
     sps,mappings = relabel(sp_label)
-    adjs = []
-#    from skimage.segmentation import relabel_sequential
-    for n in range(sp_label.shape[2]):
-         adjs.append(get_sp_adj(sps[n]))
+    return sps,mappings
+#     adjs = []
+# #    from skimage.segmentation import relabel_sequential
+#     for n in range(sp_label.shape[2]):
+#          adjs.append(get_sp_adj(sps[n]))
 
-    return sps, adjs,mappings
+#     return sps, adjs,mappings
+
     
         
 def video_superpixel(frames,detector):
