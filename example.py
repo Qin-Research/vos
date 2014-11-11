@@ -256,7 +256,7 @@ from video_util import *
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
 #name = 'soldier'
-name = 'hummingbird'
+name = 'soldier'
 def get_dominant_motion(motion):
     hist,bins = np.histogram(motion.flatten(), bins=500)
     return bins[np.argmax(hist)]
@@ -447,16 +447,33 @@ for i in range(len(frames)-1):
         # if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
         #    labels[i+1][mask] = 1
 
-    figure(figsize(18,15))
-    subplot(1,3,1)
+    hs = hsobel(angle[:,:,i])
+    vs = vsobel(angle[:,:,i])
+
+    ang_edge = np.sqrt(hs ** 2 + vs ** 2)
+    im = img_as_ubyte(imread(frames[i]))
+    figure(figsize(24,21))
+    subplot(1,5,1)
+    imshow(im)
+    axis("off")    
+    subplot(1,5,2)
     imshow(angle[:,:,i])
-    subplot(1,3,2)
-    imshow(labels[i])
-    subplot(1,3,3)
+    axis("off")    
+    subplot(1,5,3)
     imshow(labels2[i])
+    axis("off")    
+    subplot(1,5,4)
+    imshow(labels[i])
+    axis("off")
+    subplot(1,5,5)
+    imshow(alpha_composite(im, mask_to_rgb(labels[i], (0,255,0))))
+    axis("off")
+    
+#    subplot(1,4,4)
+ #   imshow(ang_edge)
     
     show()
-
+    
 #     for d in dead:
 #         rows,cols = np.nonzero(segs[i] == mappings[i][d])
 #         for j in range(len(rows)):

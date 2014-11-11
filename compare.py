@@ -248,7 +248,7 @@ def get_feature_for_pairwise(frames, segs):
 
     return features
 
-name = 'cheetah'
+name = 'girl'
 
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -261,10 +261,10 @@ from skimage.filter import vsobel,hsobel
 mag = np.sqrt(vx**2 + vy ** 2)
 r,c,n_frames = mag.shape
 n_frames+=1
-sp_file = "../TSP/results/%s.mat" % name
+sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
-#segs,adjs,mappings = get_tsp(sp_label)
-segs = loadmat('sp_%s2.mat' % name)['superpixels'].astype(int)
+segs,mappings = get_tsp(sp_label)
+#segs = loadmat('sp_%s2.mat' % name)['superpixels'].astype(int)
 s = []
 for i in range(n_frames):
      s.append(segs[:,:,i])
@@ -346,8 +346,8 @@ lab_range = get_lab_range(frames)
 pair_feature = get_feature_for_pairwise(frames, segs).astype(np.float32)
 potts_weight = 10
 final_mask = segment(frames, np.ascontiguousarray(unary), pair_feature, segs, 100)
-#final_mask2 = segment2(frames, 10*np.ascontiguousarray(unary),source, target, value, segs, potts_weight)
-final_mask2 = final_mask
+final_mask2 = segment2(frames, 10*np.ascontiguousarray(unary),source, target, value, segs, potts_weight)
+#final_mask2 = final_mask
 
 
 

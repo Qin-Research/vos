@@ -630,32 +630,32 @@ def get_edge_strength(frames, segs):
     return d
                 
             
-#name = 'girl'
-name = 'soldier'
+name = 'girl'
+#name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
 
-frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")] 
-from skimage.filter import vsobel,hsobel
+# frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")] 
+# from skimage.filter import vsobel,hsobel
 
-mag = np.sqrt(vx**2 + vy ** 2)
-r,c,n_frames = mag.shape
-n_frames += 1
-sp_file = "../TSP/results2/%s.mat" % name
-sp_label = loadmat(sp_file)["sp_labels"]
-segs = get_tsp(sp_label)
+# mag = np.sqrt(vx**2 + vy ** 2)
+# r,c,n_frames = mag.shape
+# n_frames += 1
+# sp_file = "../TSP/results/%s.mat" % name
+# sp_label = loadmat(sp_file)["sp_labels"]
+# segs,mapping = get_tsp(sp_label)
 
-from skimage import img_as_ubyte
-# d = get_edge_strength(frames, segs)
-# savemat('edge_%s.mat' % name, {'edge_strength':d})
-sp_mat = np.empty((r,c,n_frames))
-for i in range(n_frames):
-    sp_mat[:,:,i] = segs[i]
+# from skimage import img_as_ubyte
+# # d = get_edge_strength(frames, segs)
+# # savemat('edge_%s.mat' % name, {'edge_strength':d})
+# sp_mat = np.empty((r,c,n_frames))
+# for i in range(n_frames):
+#     sp_mat[:,:,i] = segs[i]
 
 
-savemat('sp_%s2.mat' % name, {'superpixels':sp_mat})    
+# savemat('sp_%s2.mat' % name, {'superpixels':sp_mat})    
 # to_save = np.zeros((r,c,n_frames),dtype=segs[0].dtype)
 # for i in range(n_frames):
 #     to_save[:,:,i] = segs[i]
@@ -689,10 +689,10 @@ savemat('sp_%s2.mat' % name, {'superpixels':sp_mat})
 
 # #init_sal = np.load('sal_%s.npy' % name)
 # init_sal = loadmat('/home/masa/research/saliency/CVPR2014_HDCT/%s.mat' % name)['sals']
-# gt = get_segtrack_gt(name)
-# g = gt[0][0]
+gt = get_segtrack_gt(name)
+g = gt[0][0]
 
-# if len(gt)>1: g += gt[1][0]
+if len(gt)>1: g += gt[1][0]
     
 # init_sal[:,:,0] = g
 # rhs = []
