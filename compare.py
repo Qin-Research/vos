@@ -45,7 +45,7 @@ def segment(frames, unary, pair_features ,segs,potts_weights):
 
 #    potts = potts_weight * np.array([[0.5,1],
                                  #    [1,0.5]], np.float32) 
-    potts = potts_weight * np.array([[0,1],
+    potts =                np.array([[0,1],
                                      [1,0]], np.float32)
 
     crf = DenseCRF(n_nodes, 2)
@@ -54,7 +54,7 @@ def segment(frames, unary, pair_features ,segs,potts_weights):
     crf.set_unary_energy(unary.astype(np.float32))
     
     for (i,f) in enumerate(pair_features):
-      crf.add_pairwise_energy((potts_weight[i] * potts).astype(np.float32), np.ascontiguousarray(pair_features[i]).astype(np.float32))
+      crf.add_pairwise_energy((potts_weights[i] * potts).astype(np.float32), np.ascontiguousarray(pair_features[i]).astype(np.float32))
     
     iteration = 10
 
@@ -213,10 +213,14 @@ def superpixel_feature(image,seg,ii, n_frames):
         labs = lab_image[rows, cols,:]
 
         #feature = np.empty(0)
-        feature = np.mean(rgbs, axis=0) / 30
-        center_y = np.mean(rows) / 80
-        center_x = np.mean(cols) / 80
-        feature = np.concatenate((feature,np.array([center_y,center_x, ii*10])))
+        feature = np.mean(rgbs, axis=0)
+        center_y = np.mean(rows) 
+        center_x = np.mean(cols) 
+        feature = np.concatenate((feature,np.array([center_y,center_x, ii])))
+
+        patch = gray[round(center_y):round(center_y+15), round(center_x):round(center_x)+15]
+        hog_feat = hog(patch,orientations=6,pixels_per_cell=(5,5), cells_per_block=(3,3))
+        feature = np.concatenate((feature, hog_feat))
                                   
         if features == None:
             dim = len(feature)
@@ -250,7 +254,7 @@ def get_feature_for_pairwise(frames, segs):
 
     return features
 
-name = 'bmx'
+name = 'monkeydog'
 
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -265,19 +269,19 @@ r,c,n_frames = mag.shape
 n_frames+=1
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
-#segs,mappings = get_tsp(sp_label)
-segs = loadmat('sp_%s2.mat' % name)['superpixels'].astype(int)
-s = []
-for i in range(n_frames):
-     s.append(segs[:,:,i])
-segs = s    
+segs,mappings = get_tsp(sp_label)
+#segs = loadmat('sp_%s2.mat' % name)['superpixels'].astype(int)
+# s = []
+# for i in range(n_frames):
+#      s.append(segs[:,:,i])
+# segs = s    
     
 lab_range = get_lab_range(frames)
 #feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
 
-source = loadmat('/home/masa/research/FastVideoSegment/source_%s.mat' % name)['source'].flatten().astype(np.int)
-target = loadmat('/home/masa/research/FastVideoSegment/target_%s.mat'% name)['target'].flatten().astype(np.int)
-value = loadmat('/home/masa/research/FastVideoSegment/value_%s.mat'% name)['value'].flatten()
+# source = loadmat('/home/masa/research/FastVideoSegment/source_%s.mat' % name)['source'].flatten().astype(np.int)
+# target = loadmat('/home/masa/research/FastVideoSegment/target_%s.mat'% name)['target'].flatten().astype(np.int)
+# value = loadmat('/home/masa/research/FastVideoSegment/value_%s.mat'% name)['value'].flatten()
 unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
 
 
@@ -346,17 +350,25 @@ if len(gt)>1: g += gt[1][0]
                 
 lab_range = get_lab_range(frames)
 pair_feature = get_feature_for_pairwise(frames, segs).astype(np.float32)
+color = pair_feature[:,:3] / 30
+loc = pair_feature[:,3:5] / 80
+t = pair_feature[:,5][:,np.newaxis] * 10
+hg = pair_feature[:,6:] 
 #potts_weight = [10,10]
-potts_weight = [10]
+
+
 #pair_features = [pair_feature[:,:3], pair_feature[:,3:5]]
-pair_features = [pair_feature]
-final_mask = segment(frames, np.ascontiguousarray(unary), pair_features, segs, potts_weight)
-final_mask2 = segment2(frames, 10*np.ascontiguousarray(unary),source, target, value, segs, 10)
-final_mask2 = final_mask
+# pair_features = [np.hstack((color, loc,t))]
+# potts_weight = [10]
+pair_features = [np.hstack((color,loc,t))]
 
+#potts_weight = [1000] bmx
+potts_weight = [100] 
+final_mask = segment(frames, 10 * np.ascontiguousarray(unary), pair_features, segs, potts_weight)
+final_mask2 = segment2(frames, 10 * np.ascontiguousarray(unary),source, target, value, segs, 1)
+#final_mask2 = final_mask
 
-
-for i in range(n_frames):
+for i in range(n_frames-1):
     figure(figsize(20,18))
 
     print i

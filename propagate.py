@@ -107,7 +107,7 @@ def get_edge_strength(frames, segs):
                 
             
 name = 'girl'
-name = ''
+#name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -126,12 +126,12 @@ segs,adjs, mapping = get_tsp2(sp_label)
 # from skimage import img_as_ubyte
 # # d = get_edge_strength(frames, segs)
 # # savemat('edge_%s.mat' % name, {'edge_strength':d})
-# sp_mat = np.empty((r,c,n_frames))
-# for i in range(n_frames):
-#     sp_mat[:,:,i] = segs[i]
+sp_mat = np.empty((r,c,n_frames))
+for i in range(n_frames):
+    sp_mat[:,:,i] = segs[i]
 
 
-# savemat('sp_%s2.mat' % name, {'superpixels':sp_mat})    
+savemat('sp_%s2.mat' % name, {'superpixels':sp_mat})    
 # to_save = np.zeros((r,c,n_frames),dtype=segs[0].dtype)
 # for i in range(n_frames):
 #     to_save[:,:,i] = segs[i]
@@ -144,8 +144,8 @@ segs = s
 
 
 inratios = loadmat("/home/masa/research/FastVideoSegment/inratios_%s.mat" % name)['inRatios']
-init_sal = np.zeros((r,c,n_frames))
-for i in range(n_frames):
+init_sal = np.zeros((r,c,n_frames-1))
+for i in range(n_frames-1):
     uni = np.unique(segs[i])
     im = np.zeros((r,c))
     print i
@@ -163,6 +163,7 @@ for i in range(n_frames):
 
 # lab_range = get_lab_range(frames)
 feats = get_sp_rgb_mean_all_frames(frames,segs, None)
+
 # sp_feature = feats2mat(feats).astype(np.float32)
 node_id = []
 
@@ -176,12 +177,12 @@ if len(gt)>1: g += gt[1][0]
     
 rhs = []
 id_count = 0
-for i in range(n_frames):
+for i in range(n_frames-1):
     uni = np.unique(segs[i])
     id_dict = {}
     for u in uni:
         rs, cs = np.nonzero(segs[i] == u)
-        rhs.append(np.mean(init_sal[:,:,i][rs,cs]))
+        rhs.append(np.mean(init_sal[rs,cs,i]))
         id_dict[u] = id_count
         id_count += 1
     node_id.append(id_dict)
@@ -190,12 +191,13 @@ rows = []
 cols = []
 values = []
 n_node = 0
+#for f in feats: f/=13
 
 edges = []
 edge_cost = []
 n_temp = 0
 mappings = mapping
-for i in range(n_frames):
+for i in range(n_frames-1):
     uni = np.unique(segs[i])
     n_node += len(uni)
     print i
@@ -216,7 +218,24 @@ for i in range(n_frames):
             edges.append((node_id[i][u], node_id[i][n_id]))
             edge_cost.append(values[-1])
 
-        if i < n_frames -1:
+        # for j in range(n_frames-1):
+        #     if i == j: continue
+        #     if np.sum(sp_label[:,:,j] == mappings[i][:u]) > 0:
+
+        #         id = node_id[j][mappings[j][mappings[i][:u]]]
+        #         if node_id[i][u] == id: continue
+        #         rows.append(node_id[i][u])
+        #         cols.append(id)
+        #         values.append(np.linalg.norm(feats[i][:u] - feats[j][mappings[j][mappings[i][:u]]]) ** 2)
+        #         values.append(values[-1])
+        #         cols.append(node_id[i][u])
+        #         rows.append(id)
+
+        #         edges.append((node_id[i][u], id))                
+        #         edge_cost.append(values[-1])
+        #         n_temp += 1
+
+        if i < n_frames -2:
             if np.sum(sp_label[:,:,i+1] == mappings[i][:u]) > 0:
 
                 id = node_id[i+1][mappings[i+1][mappings[i][:u]]]
@@ -232,16 +251,18 @@ for i in range(n_frames):
                 edge_cost.append(values[-1])
                 n_temp += 1
 
-sigma2 = 3000
-values2 = np.exp(-np.array(values) / sigma2)
-edge_cost = np.exp(-np.array(edge_cost) / sigma2)
+sigma = 30 
+#sigma2 = 1000
+#values2 = np.exp(-np.array(values) / (2*sigma**2))
+values2 = np.exp(-np.array(values) / 10000)
+#values2 = np.exp(-np.array(values))
 
 from scipy.sparse import csr_matrix, spdiags                                   
 W = csr_matrix((values2, (rows, cols)), shape=(n_node, n_node))
 
 inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
 D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
-lam = 100
+lam = 10
 lhs = D + lam * (D - W)
 from scipy.sparse import eye
 
@@ -250,7 +271,15 @@ from scipy.sparse import eye
 from scipy.sparse.linalg import spsolve,lsmr
 sal = spsolve(lhs, D.dot(np.array(rhs)))
 
-
+count = 0
+for i in range(n_frames-1):
+    sal_image = np.zeros((r,c))
+    for u in np.unique(segs[i]):
+        rs, cs = np.nonzero(segs[i] == u)
+        sal_image[rs,cs] = sal[count]
+        count += 1
+    imshow(sal_image)
+    show()
 # sal = np.array(rhs)
 # A = inv_D.dot(W)
 

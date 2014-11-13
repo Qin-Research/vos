@@ -22,8 +22,8 @@ from video_util import *
 
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
-#name = 'soldier'
-name = 'hummingbird'
+name = 'cheetah'
+#name = 'hum'
 def get_dominant_motion(motion):
     hist,bins = np.histogram(motion.flatten(), bins=500)
     return bins[np.argmax(hist)]
@@ -58,7 +58,7 @@ class Path:
             show()
         
 n = np.unique(sp_label)
-paths = {}
+
 gt = get_segtrack_gt(name)
 n_gt = len(gt)
 gt_label = np.zeros(sp_label.shape, np.bool)
@@ -70,7 +70,8 @@ inlier = []
 inlier_count = []
 outlier = []
 outlier_count = []
-
+paths = {}
+label_count = {}
 for (i,id) in enumerate(n):
     mask = sp_label == id
     rows, cols, frame = np.nonzero(mask)
@@ -78,28 +79,31 @@ for (i,id) in enumerate(n):
     c = len(np.unique(frame))
 
     if c == 1: continue
-    if np.sum(gt_label[mask]) > 10:
-        unique_frame = np.unique(frame)
-        ok = True
-        for u in unique_frame:
-            rs = rows[frame == u]
-            cs = cols[frame == u]
-            if np.mean(gt_label[rs,cs,u]) > 0.5:
-                continue
-            else:
-                outlier.append(id)
-                outlier_count.append(c)
-                ok = False
-                break
-        if ok:
-             inlier.append(id)
-             inlier_count.append(c)
-        
-inlier = np.array(inlier)
-outlier = np.array(outlier)
-inlier_count = np.array(inlier_count)
-outlier_count = np.array(outlier_count)
+#    if c > 2: long_paths[id] = Path(n, rows, cols, frame)
+    # if np.sum(gt_label[mask]) > 10:
+    #     unique_frame = np.unique(frame)
+    #     ok = True
+    label_count[id] = np.zeros(2)    
+    unique_frame = np.unique(frame)
+    for u in unique_frame:
+        rs = rows[frame == u]
+        cs = cols[frame == u]
+        if np.mean(gt_label[rs,cs,u]) > 0.6:
+            label_count[id][0] += 1
+        else:
+            label_count[id][1] += 1
 
+outlier = {}
+x = []
+y = []         
+for i in label_count.keys():
+    # x.append(label_count[i][0])
+    # y.append(label_count[i][1])
+    
+    if label_count[i][0] != 0 and label_count[i][1] != 0:
+        outlier[i] = label_count[i]
+        x.append(label_count[i][0])
+        y.append(label_count[i][1])
 # inlier_count = []
 # for i in inlier:
 #   inlier_count.append()
