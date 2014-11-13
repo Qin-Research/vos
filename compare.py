@@ -23,8 +23,8 @@ import ipdb
 
 
 
-def segment(frames, unary, pair_features ,segs,potts_weight):
-    n_nodes = pair_features.shape[0]
+def segment(frames, unary, pair_features ,segs,potts_weights):
+    n_nodes = unary.shape[0]
     # prob_fg = np.zeros(n_nodes)
     # prob_bg = np.zeros(n_nodes)
 
@@ -52,7 +52,9 @@ def segment(frames, unary, pair_features ,segs,potts_weight):
 
     print 'Mean field inference ...'        
     crf.set_unary_energy(unary.astype(np.float32))
-    crf.add_pairwise_energy(potts, np.ascontiguousarray(pair_features.astype(np.float32)))
+    
+    for (i,f) in enumerate(pair_features):
+      crf.add_pairwise_energy((potts_weight[i] * potts).astype(np.float32), np.ascontiguousarray(pair_features[i]).astype(np.float32))
     
     iteration = 10
 
@@ -248,7 +250,7 @@ def get_feature_for_pairwise(frames, segs):
 
     return features
 
-name = 'girl'
+name = 'bmx'
 
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -263,8 +265,8 @@ r,c,n_frames = mag.shape
 n_frames+=1
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
-segs,mappings = get_tsp(sp_label)
-#segs = loadmat('sp_%s2.mat' % name)['superpixels'].astype(int)
+#segs,mappings = get_tsp(sp_label)
+segs = loadmat('sp_%s2.mat' % name)['superpixels'].astype(int)
 s = []
 for i in range(n_frames):
      s.append(segs[:,:,i])
@@ -344,10 +346,13 @@ if len(gt)>1: g += gt[1][0]
                 
 lab_range = get_lab_range(frames)
 pair_feature = get_feature_for_pairwise(frames, segs).astype(np.float32)
-potts_weight = 10
-final_mask = segment(frames, np.ascontiguousarray(unary), pair_feature, segs, 100)
-final_mask2 = segment2(frames, 10*np.ascontiguousarray(unary),source, target, value, segs, potts_weight)
-#final_mask2 = final_mask
+#potts_weight = [10,10]
+potts_weight = [10]
+#pair_features = [pair_feature[:,:3], pair_feature[:,3:5]]
+pair_features = [pair_feature]
+final_mask = segment(frames, np.ascontiguousarray(unary), pair_features, segs, potts_weight)
+final_mask2 = segment2(frames, 10*np.ascontiguousarray(unary),source, target, value, segs, 10)
+final_mask2 = final_mask
 
 
 

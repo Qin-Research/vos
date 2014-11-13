@@ -451,12 +451,15 @@ def relabel(sp_label):
 def get_tsp(sp_label):
     sps,mappings = relabel(sp_label)
     return sps,mappings
-#     adjs = []
-# #    from skimage.segmentation import relabel_sequential
-#     for n in range(sp_label.shape[2]):
-#          adjs.append(get_sp_adj(sps[n]))
 
-#     return sps, adjs,mappings
+def get_tsp2(sp_label):
+    sps,mappings = relabel(sp_label)
+    adjs = []
+#    from skimage.segmentation import relabel_sequential
+    for n in range(sp_label.shape[2]):
+         adjs.append(get_sp_adj(sps[n]))
+
+    return sps, adjs,mappings
 
     
         
