@@ -14,20 +14,9 @@ from skimage.segmentation import find_boundaries
 from video_graph import *
 from IPython.core.pylabtools import figsize
 from video_util import *
-# from krahenbuhl2013 import DenseCRF
-# #prop = proposals.Proposal( setupBaseline( 130, 5, 0.8 ) )
-# #prop = proposals.Proposal( setupBaseline( 150, 7, 0.85 ) )
-# prop = proposals.Proposal( setupLearned( 150, 5, 0.8 ) )
-# #prop = proposals.Proposal( setupLearned( 160, 6, 0.85 ) )
 
-# detector = contour.MultiScaleStructuredForest()
-# detector.load( "sf.dat" )
 name = 'cheetah'
 #name = 'hum'
-def get_dominant_motion(motion):
-    hist,bins = np.histogram(motion.flatten(), bins=500)
-    return bins[np.argmax(hist)]
-
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -72,40 +61,88 @@ outlier = []
 outlier_count = []
 paths = {}
 label_count = {}
+single_label = []
+label_order = {}
+labels = []
 for (i,id) in enumerate(n):
     mask = sp_label == id
     rows, cols, frame = np.nonzero(mask)
     paths[id] =  Path(n, rows, cols, frame)
     c = len(np.unique(frame))
 
-    if c == 1: continue
+    if c == 1:
+        single_label.append(id)
+        labels.append(gt_label[rows, cols, frame[0]] > 0.6)
+        continue
 #    if c > 2: long_paths[id] = Path(n, rows, cols, frame)
     # if np.sum(gt_label[mask]) > 10:
     #     unique_frame = np.unique(frame)
     #     ok = True
     label_count[id] = np.zeros(2)    
     unique_frame = np.unique(frame)
+    label_order[id] = []
     for u in unique_frame:
         rs = rows[frame == u]
         cs = cols[frame == u]
         if np.mean(gt_label[rs,cs,u]) > 0.6:
             label_count[id][0] += 1
+            label_order[id].append(0)
         else:
             label_count[id][1] += 1
-
+            label_order[id].append(1)
+            
+    if label_count[id][0] > label_count[id][1]:
+        labels.append(1)
+    else:
+        labels.append(0)
+            
+            
 outlier = {}
+outlier_order = {}
 x = []
-y = []         
+y = []
+long_fg = {}
+long_bg = {}
+long_n = 5
+
 for i in label_count.keys():
     # x.append(label_count[i][0])
     # y.append(label_count[i][1])
-    
+    if label_count[i][0] >= long_n:
+        long_fg[i] = label_count[i]        
+    if label_count[i][1] >= long_n:
+        long_bg[i] = label_count[i]
     if label_count[i][0] != 0 and label_count[i][1] != 0:
         outlier[i] = label_count[i]
         x.append(label_count[i][0])
         y.append(label_count[i][1])
+        outlier_order[i] = label_order[i]
+
+        
+label_all = np.zeros(gt_label.shape, np.bool)        
+for (i,id) in enumerate(paths.keys()):
+    if labels[i] == 0:
+        label_all[sp_label == id] = 0
+    else:
+        label_all[sp_label == id] = 1
+        
+gt_single = np.zeros(gt_label.shape,np.bool)
+
+for s in single_label:
+    gt_single[sp_label == s] = 1
+
+for i in range(gt_single.shape[2]):
+    imshow(gt_single[:,:,i])
+    show()
+
+for i in outlier_order.keys():
+    if len(outlier_order[i]) > 3:
+     print i, outlier_order[i]    
 # inlier_count = []
 # for i in inlier:
 #   inlier_count.append()
 
 # inlier_count = np.array(inlier_count)  
+
+#hummingbird
+#failure: 5438
