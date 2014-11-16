@@ -254,7 +254,7 @@ def get_feature_for_pairwise(frames, segs):
 
     return features
 
-name = 'monkeydog'
+name = 'bmx'
 
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -279,9 +279,9 @@ segs,mappings = get_tsp(sp_label)
 lab_range = get_lab_range(frames)
 #feats = get_sp_rgb_mean_all_frames(frames,segs, lab_range)
 
-# source = loadmat('/home/masa/research/FastVideoSegment/source_%s.mat' % name)['source'].flatten().astype(np.int)
-# target = loadmat('/home/masa/research/FastVideoSegment/target_%s.mat'% name)['target'].flatten().astype(np.int)
-# value = loadmat('/home/masa/research/FastVideoSegment/value_%s.mat'% name)['value'].flatten()
+source = loadmat('/home/masa/research/FastVideoSegment/source_%s.mat' % name)['source'].flatten().astype(np.int)
+target = loadmat('/home/masa/research/FastVideoSegment/target_%s.mat'% name)['target'].flatten().astype(np.int)
+value = loadmat('/home/masa/research/FastVideoSegment/value_%s.mat'% name)['value'].flatten()
 unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
 
 
@@ -363,9 +363,9 @@ hg = pair_feature[:,6:]
 pair_features = [np.hstack((color,loc,t))]
 
 #potts_weight = [1000] bmx
-potts_weight = [100] 
+potts_weight = [1000] 
 final_mask = segment(frames, 10 * np.ascontiguousarray(unary), pair_features, segs, potts_weight)
-final_mask2 = segment2(frames, 10 * np.ascontiguousarray(unary),source, target, value, segs, 1)
+final_mask2 = segment2(frames, 10 * np.ascontiguousarray(unary),source, target, value, segs, 10)
 #final_mask2 = final_mask
 
 for i in range(n_frames-1):

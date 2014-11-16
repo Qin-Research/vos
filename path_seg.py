@@ -206,8 +206,8 @@ potts_weights = [0.1]
 color = p_feature[:,:3] / 30
 loc = p_feature[:,3:] / 80
 pair_features = [np.hstack((color, loc))]
-#mask,belief =  segment(frames, p_u, pair_features ,segs,potts_weights, sp_label,paths)
-mask =  segment(frames, p_u, pair_features ,segs,potts_weights, sp_label,paths)
+mask,belief =  segment(frames, p_u, pair_features ,segs,potts_weights, sp_label,paths)
+#mask =  segment(frames, p_u, pair_features ,segs,potts_weights, sp_label,paths)
 
 for i in range(n_frames-1):
     figure(figsize(20,18))

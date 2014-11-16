@@ -1,6 +1,8 @@
 *.user
 build
 flow
+robust_pn
+*.pickle
 *.pyc
 *.npy
 *.mat

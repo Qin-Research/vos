@@ -14,37 +14,24 @@ from skimage.segmentation import find_boundaries
 from video_graph import *
 from IPython.core.pylabtools import figsize
 from video_util import *
+from path import Path
 
-name = 'cheetah'
-#name = 'hum'
+name = 'soldier'
+#name = 'girl'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
 
+mag = np.sqrt(vx**2 + vy ** 2)
+angle = np.arctan2(vx,vy)
+
 frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")]
+imgs = [img_as_ubyte(imread(f)) for f in frames]
+        
 from skimage.filter import vsobel,hsobel
 sp_file = "../TSP/results2/%s.mat" % name
-sp_label = loadmat(sp_file)["sp_labels"]
+sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 
-class Path:
-    def __init__(self, id, rows, cols, frame):
-        self.id = id
-        self.rows = rows
-        self.cols = cols
-        self.frame = frame
-
-    def plot_path(self, frames):
-        unique_frame = np.unique(self.frame)
-        for i in unique_frame:
-            print i
-            im = img_as_ubyte(imread(frames[i]))
-            rows = self.rows[self.frame == i]
-            cols = self.cols[self.frame == i]
-            mask = np.zeros(im.shape[:2], np.bool)
-            mask[rows, cols] = 1
-
-            imshow(alpha_composite(im, mask_to_rgb(mask, (0,255,0))), cmap=gray())
-            show()
         
 n = np.unique(sp_label)
 
@@ -64,15 +51,16 @@ label_count = {}
 single_label = []
 label_order = {}
 labels = []
+gt_thres = 0.5
 for (i,id) in enumerate(n):
     mask = sp_label == id
     rows, cols, frame = np.nonzero(mask)
-    paths[id] =  Path(n, rows, cols, frame)
+    paths[id] =  Path(n, rows, cols, frame, imgs, vx, vy)
     c = len(np.unique(frame))
 
     if c == 1:
         single_label.append(id)
-        labels.append(gt_label[rows, cols, frame[0]] > 0.6)
+        labels.append(np.mean(gt_label[rows, cols, frame[0]]) > gt_thres)
         continue
 #    if c > 2: long_paths[id] = Path(n, rows, cols, frame)
     # if np.sum(gt_label[mask]) > 10:
@@ -84,7 +72,7 @@ for (i,id) in enumerate(n):
     for u in unique_frame:
         rs = rows[frame == u]
         cs = cols[frame == u]
-        if np.mean(gt_label[rs,cs,u]) > 0.6:
+        if np.mean(gt_label[rs,cs,u]) > gt_thres:
             label_count[id][0] += 1
             label_order[id].append(0)
         else:
@@ -96,7 +84,12 @@ for (i,id) in enumerate(n):
     else:
         labels.append(0)
             
-            
+
+from cPickle import dump
+with open('paths_%s.pickle' % name, 'w') as f:
+    dump(paths,f)
+
+    
 outlier = {}
 outlier_order = {}
 x = []
@@ -119,25 +112,34 @@ for i in label_count.keys():
         outlier_order[i] = label_order[i]
 
         
-label_all = np.zeros(gt_label.shape, np.bool)        
-for (i,id) in enumerate(paths.keys()):
-    if labels[i] == 0:
-        label_all[sp_label == id] = 0
-    else:
-        label_all[sp_label == id] = 1
-        
-gt_single = np.zeros(gt_label.shape,np.bool)
+# label_all = np.zeros(gt_label.shape, np.bool)        
+# for (i,id) in enumerate(paths.keys()):
+#     if labels[i] == 0:
+#         label_all[sp_label == id] = 0
+#     else:
+#         label_all[sp_label == id] = 1
 
-for s in single_label:
-    gt_single[sp_label == s] = 1
+# for i in range(label_all.shape[2]):
+#     print i
+#     figure(figsize(21,18))
+#     subplot(1,2,1)
+#     imshow(label_all[:,:,i])
+#     subplot(1,2,2)
+#     imshow(gt_label[:,:,i])    
+#     show()
 
-for i in range(gt_single.shape[2]):
-    imshow(gt_single[:,:,i])
-    show()
+# gt_single = np.zeros(gt_label.shape,np.bool)
 
-for i in outlier_order.keys():
-    if len(outlier_order[i]) > 3:
-     print i, outlier_order[i]    
+# for s in single_label:
+#     gt_single[sp_label == s] = 1
+
+# for i in range(gt_single.shape[2]):
+#     imshow(gt_single[:,:,i])
+#     show()
+
+# for i in outlier_order.keys():
+#     if len(outlier_order[i]) > 3:
+#      print i, outlier_order[i]    
 # inlier_count = []
 # for i in inlier:
 #   inlier_count.append()
