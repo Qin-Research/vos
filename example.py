@@ -43,8 +43,8 @@ segs,mappings = get_tsp(sp_label)
 
 
 # edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
-mag = np.sqrt(vx**2 + vy ** 2)
-angle = 
+
+
 # img = np.zeros((r,c,3))
 # gray = rgb2gray(imread(frames[0]))
 # for i in range(r):
@@ -55,6 +55,7 @@ angle =
 
 # imshow(img)
 # show()
+mag = np.sqrt(vx**2 + vy ** 2)
 angle = np.arctan2(vx,vy) / np.pi * 180
 for i in range(len(frames)):
     print i
