@@ -1,6 +1,7 @@
 *.user
 build
 flow
+*.shelve
 robust_pn
 *.pickle
 *.pyc

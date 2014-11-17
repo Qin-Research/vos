@@ -241,7 +241,7 @@ from skimage.filter import vsobel,hsobel
 from cPickle import load
 with open('paths_%s.pickle' % name) as f:
     paths = load(f)
-
+    
 gt = get_segtrack_gt(name)
 n_gt = len(gt)
 gt_label = np.zeros(sp_label.shape, np.bool)
@@ -377,3 +377,9 @@ print time.time() - t
 #plot_value(paths, sp_label, cluster_labels,jet())
 
 good_cluster,bad_cluster = cluster_check(paths, cluster_labels,labels)
+import shelve
+shelf = shelve.open('%s_cluster.shelve' %name,'n')
+shelf['cluster_labels'] = cluster_labels
+shelf['labels'] = labels
+shelf['sp_label'] = sp_label
+shelf.close()

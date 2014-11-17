@@ -554,7 +554,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 edge_index = np.hstack((np.array(target)[:,np.newaxis], np.array(source)[:,np.newaxis]))                
-mask =  segment(frames, p_u, source, target, aff, segs, 0.1,paths)
+mask =  segment(frames, p_u, source, target, aff, segs, 0.01,paths)
 
 for i in range(len(mask)):
     figure(figsize(20,18))
@@ -570,7 +570,7 @@ for i in range(len(mask)):
     axis("off")    
     
     show() 
-
+    
 # paths_per_cluster = 5
 # n_clusters = n_paths / paths_per_cluster
 # import time
