@@ -8,3 +8,5 @@ robust_pn
 *.npy
 *.mat
 *.png
+*.h5
+*.autosave

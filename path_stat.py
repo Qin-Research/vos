@@ -31,9 +31,8 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 from skimage.filter import vsobel,hsobel
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
-
         
-n = np.unique(sp_label)
+
 
 gt = get_segtrack_gt(name)
 n_gt = len(gt)
@@ -42,17 +41,26 @@ for i in range(sp_label.shape[2]):
     gt_label[:,:,i] = gt[0][i].astype(np.bool)
     if n_gt > 1: gt_label[:,:,i] += gt[1][i].astype(np.bool)
 
+from cPickle import load
+with open('paths_%s.pickle' % name) as f:
+    paths = load(f)
+
+n = np.unique(sp_label)            
 inlier = []
 inlier_count = []
 outlier = []
 outlier_count = []
-paths = {}
 label_count = {}
 single_label = []
 label_order = {}
 labels = []
 gt_thres = 0.5
+#for (i,id) in enumerate(paths.keys()):
 for (i,id) in enumerate(n):
+    # frame = paths[id].frame
+    # rows = paths[id].rows
+    # cols = paths[id].cols
+    
     mask = sp_label == id
     rows, cols, frame = np.nonzero(mask)
     paths[id] =  Path(n, rows, cols, frame, imgs, vx, vy)
@@ -62,6 +70,10 @@ for (i,id) in enumerate(n):
         single_label.append(id)
         labels.append(np.mean(gt_label[rows, cols, frame[0]]) > gt_thres)
         continue
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
+    
 #    if c > 2: long_paths[id] = Path(n, rows, cols, frame)
     # if np.sum(gt_label[mask]) > 10:
     #     unique_frame = np.unique(frame)
@@ -111,22 +123,33 @@ for i in label_count.keys():
         y.append(label_count[i][1])
         outlier_order[i] = label_order[i]
 
-        
-# label_all = np.zeros(gt_label.shape, np.bool)        
+label_all = np.ones(gt_label.shape, np.bool) * 0.5        
+for i in long_fg.keys():
+    frame = paths[i].frame
+    rows = paths[i].rows
+    cols = paths[i].cols
+    label_all[rows, cols, frame] = 1                
+
+for i in long_bg.keys():
+    frame = paths[i].frame
+    rows = paths[i].rows
+    cols = paths[i].cols
+    label_all[rows, cols, frame] = 0
+    
 # for (i,id) in enumerate(paths.keys()):
 #     if labels[i] == 0:
 #         label_all[sp_label == id] = 0
 #     else:
 #         label_all[sp_label == id] = 1
 
-# for i in range(label_all.shape[2]):
-#     print i
-#     figure(figsize(21,18))
-#     subplot(1,2,1)
-#     imshow(label_all[:,:,i])
-#     subplot(1,2,2)
-#     imshow(gt_label[:,:,i])    
-#     show()
+for i in range(label_all.shape[2]):
+    print i
+    figure(figsize(21,18))
+    subplot(1,2,1)
+    imshow(label_all[:,:,i],gray())
+    subplot(1,2,2)
+    imshow(gt_label[:,:,i])    
+    show()
 
 # gt_single = np.zeros(gt_label.shape,np.bool)
 

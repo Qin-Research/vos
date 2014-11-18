@@ -22,8 +22,8 @@ from video_util import *
 
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
-#name = 'soldier'
-name = 'bmx'
+name = 'girl'
+#name = 'hummingbird'
 def get_dominant_motion(motion):
     hist,bins = np.histogram(motion.flatten(), bins=500)
     return bins[np.argmax(hist)]
@@ -37,12 +37,12 @@ from skimage.filter import vsobel,hsobel
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"]
 r,c,n = sp_label.shape
-segs,mappings = get_tsp(sp_label)
+#segs,mappings = get_tsp(sp_label)
 #segs = loadmat('sp_%s2.mat' % name)['superpixels']
 
 
 
-# edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 
 
 # img = np.zeros((r,c,3))
@@ -59,48 +59,62 @@ mag = np.sqrt(vx**2 + vy ** 2)
 angle = np.arctan2(vx,vy) / np.pi * 180
 for i in range(len(frames)):
     print i
+
+    figure(figsize(15,12))
     mag_contrast = np.zeros(mag.shape[:2])
     angle_contrast = np.zeros(mag.shape[:2])
-    uni = np.unique(segs[i])
-    # dominant_angle = get_dominant_angle(angle[:,:,i])
-    # dominant_motion = get_dominant_motion(mag[:,:,i])
-    
-    # for u in uni:
-    #     rs, cs = np.nonzero(segs[i] == u)
-    #     mag_contrast[rs,cs] = np.mean(np.abs(mag[rs,cs,i] - dominant_motion))
-    #     angle_contrast[rs,cs] = np.mean(np.abs(angle[rs,cs,i]  - dominant_angle))     
+#    uni = np.unique(segs[i])
+    dominant_angle = get_dominant_angle(angle[:,:,i])
+#    dominant_motion = get_dominant_motion(mag[:,:,i])
 
-    print i    
-    u = vx[:,:,i]
-    v = vy[:,:,i]
+    e = edges[:,:,i].copy()
+    mask = np.abs(angle[:,:,i] - dominant_angle) < 20
+#    mask = mag[:,:,i] < 0.1
+    e[mask] = 0
 
-    u_x = hsobel(u)
-    u_y = vsobel(u)
-    v_x = hsobel(v)
-    v_y = vsobel(v)
+    subplot(1,2,1)
+    imshow(edges[:,:,i],gray())
 
-    u_a = hsobel(angle[:,:,i])
-    v_a = vsobel(angle[:,:,i])
-    grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
-    grad_angle = np.sqrt(u_a**2 + v_a** 2)
-#    grad_mag = (-np.min(grad_mag) + grad_mag) / (np.max(grad_mag) - np.min(grad_mag))
-#    color_edge = (-np.min(edges[:,:,i]) + edges[:,:,i]) / (np.max(edges[:,:,i]) - np.min(edges[:,:,i]))
- #   color_edge = edges[:,:,i]
-
-    # gamma = 10    
-    # coeff = (1-np.exp(-gamma*grad_mag)) / (1+np.exp(-gamma*grad_mag))
-
-    # combined = color_edge * coeff
-
-    figure(figsize(12,9))
-    subplot(1,3,1)
-    imshow(grad_mag)
-    subplot(1,3,2)
-    imshow(angle[:,:,i])
-    subplot(1,3,3)
-    imshow(grad_angle)
-    
+    subplot(1,2,2)
+    imshow(e)
     show()
+    
+#     # for u in uni:
+#     #     rs, cs = np.nonzero(segs[i] == u)
+#     #     mag_contrast[rs,cs] = np.mean(np.abs(mag[rs,cs,i] - dominant_motion))
+#     #     angle_contrast[rs,cs] = np.mean(np.abs(angle[rs,cs,i]  - dominant_angle))     
+
+#     print i    
+#     u = vx[:,:,i]
+#     v = vy[:,:,i]
+
+#     u_x = hsobel(u)
+#     u_y = vsobel(u)
+#     v_x = hsobel(v)
+#     v_y = vsobel(v)
+
+#     u_a = hsobel(angle[:,:,i])
+#     v_a = vsobel(angle[:,:,i])
+#     grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
+#     grad_angle = np.sqrt(u_a**2 + v_a** 2)
+# #    grad_mag = (-np.min(grad_mag) + grad_mag) / (np.max(grad_mag) - np.min(grad_mag))
+# #    color_edge = (-np.min(edges[:,:,i]) + edges[:,:,i]) / (np.max(edges[:,:,i]) - np.min(edges[:,:,i]))
+#  #   color_edge = edges[:,:,i]
+
+#     # gamma = 10    
+#     # coeff = (1-np.exp(-gamma*grad_mag)) / (1+np.exp(-gamma*grad_mag))
+
+#     # combined = color_edge * coeff
+
+#     figure(figsize(12,9))
+#     subplot(1,3,1)
+#     imshow(grad_mag)
+#     subplot(1,3,2)
+#     imshow(angle[:,:,i])
+#     subplot(1,3,3)
+#     imshow(grad_angle)
+    
+#     show()
 
 
     
@@ -182,78 +196,78 @@ for i in range(len(frames)):
 #         if np.sum(sp_label[:,:,i] == l) > 0:
 #             bg_count[l] += 1
 
-labels = []
-labels2 = []
-labels3 = []
-for i in range(len(frames)):
-    label = np.zeros((r,c), np.bool)
-    label2 = np.zeros((r,c), np.bool)
-    label3 = np.zeros((r,c), np.bool)
-    labels.append(label)
-    labels2.append(label2)
-    labels3.append(label3)
-angle = np.arctan2(vx,vy) / np.pi * 180
+# labels = []
+# labels2 = []
+# labels3 = []
+# for i in range(len(frames)):
+#     label = np.zeros((r,c), np.bool)
+#     label2 = np.zeros((r,c), np.bool)
+#     label3 = np.zeros((r,c), np.bool)
+#     labels.append(label)
+#     labels2.append(label2)
+#     labels3.append(label3)
+# angle = np.arctan2(vx,vy) / np.pi * 180
 
-for i in range(len(frames)-1):
+# for i in range(len(frames)-1):
 
-    # for l in gt_label:
-    #    labels[i][sp_label[:,:,i] == l] = True
+#     # for l in gt_label:
+#     #    labels[i][sp_label[:,:,i] == l] = True
     
-    dead = setdiff1d(np.unique(sp_label[:,:,i]), np.unique(sp_label[:,:,i+1]))        
-    new = setdiff1d(np.unique(sp_label[:,:,i+1]), np.unique(sp_label[:,:,i]))
+#     dead = setdiff1d(np.unique(sp_label[:,:,i]), np.unique(sp_label[:,:,i+1]))        
+#     new = setdiff1d(np.unique(sp_label[:,:,i+1]), np.unique(sp_label[:,:,i]))
    
-    dominant_angle = get_dominant_angle(angle[:,:,i])
-    labels3[i] = np.abs(angle[:,:,i] - dominant_angle) > 20
-    for d in dead:
-        mask = segs[i] == mappings[i][d]
-        labels2[i][mask] = 1
-        rows, cols = np.nonzero(mask)
-        for y in rows:
-            for x in cols:
-                if abs(angle[y,x,i] - dominant_angle) > 20:
-                    labels[i][y,x] = 1
-        # if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
-        #     labels[i][mask] = 1
+#     dominant_angle = get_dominant_angle(angle[:,:,i])
+#     labels3[i] = np.abs(angle[:,:,i] - dominant_angle) > 20
+#     for d in dead:
+#         mask = segs[i] == mappings[i][d]
+#         labels2[i][mask] = 1
+#         rows, cols = np.nonzero(mask)
+#         for y in rows:
+#             for x in cols:
+#                 if abs(angle[y,x,i] - dominant_angle) > 20:
+#                     labels[i][y,x] = 1
+#         # if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
+#         #     labels[i][mask] = 1
 
-    dominant_angle = get_dominant_angle(angle[:,:,i+1])                   
-    for n in new:
-        mask = segs[i+1] == mappings[i+1][n]
-        labels2[i+1][mask] = 1        
-        rows, cols = np.nonzero(mask)
-        for y in rows:
-            for x in cols:
-                if abs(angle[y,x,i+1] - dominant_angle) > 20:
-                    labels[i+1][y,x] = 1
+#     dominant_angle = get_dominant_angle(angle[:,:,i+1])                   
+#     for n in new:
+#         mask = segs[i+1] == mappings[i+1][n]
+#         labels2[i+1][mask] = 1        
+#         rows, cols = np.nonzero(mask)
+#         for y in rows:
+#             for x in cols:
+#                 if abs(angle[y,x,i+1] - dominant_angle) > 20:
+#                     labels[i+1][y,x] = 1
         
-        # if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
-        #    labels[i+1][mask] = 1
+#         # if abs(np.median(angle[:,:,i][mask]) - dominant_angle) > 20:
+#         #    labels[i+1][mask] = 1
 
-    hs = hsobel(angle[:,:,i])
-    vs = vsobel(angle[:,:,i])
+#     hs = hsobel(angle[:,:,i])
+#     vs = vsobel(angle[:,:,i])
 
-    ang_edge = np.sqrt(hs ** 2 + vs ** 2)
-    im = img_as_ubyte(imread(frames[i]))
-    figure(figsize(24,21))
-    subplot(1,5,1)
-    imshow(im)
-    axis("off")    
-    subplot(1,5,2)
-    imshow(angle[:,:,i])
-    axis("off")    
-    subplot(1,5,3)
-    imshow(labels2[i])
-    axis("off")    
-    subplot(1,5,4)
-    imshow(labels[i])
-    axis("off")
-    subplot(1,5,5)
-    imshow(alpha_composite(im, mask_to_rgb(labels3[i], (0,255,0))))
-    axis("off")
+#     ang_edge = np.sqrt(hs ** 2 + vs ** 2)
+#     im = img_as_ubyte(imread(frames[i]))
+#     figure(figsize(24,21))
+#     subplot(1,5,1)
+#     imshow(im)
+#     axis("off")    
+#     subplot(1,5,2)
+#     imshow(angle[:,:,i])
+#     axis("off")    
+#     subplot(1,5,3)
+#     imshow(labels2[i])
+#     axis("off")    
+#     subplot(1,5,4)
+#     imshow(labels[i])
+#     axis("off")
+#     subplot(1,5,5)
+#     imshow(alpha_composite(im, mask_to_rgb(labels3[i], (0,255,0))))
+#     axis("off")
     
-#    subplot(1,4,4)
- #   imshow(ang_edge)
+# #    subplot(1,4,4)
+#  #   imshow(ang_edge)
     
-    show()
+#     show()
     
 #     for d in dead:
 #         rows,cols = np.nonzero(segs[i] == mappings[i][d])

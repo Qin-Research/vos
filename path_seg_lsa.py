@@ -172,7 +172,7 @@ def plot_cluster(frames, paths, sp_label, cluster_label, n):
 #     for i in range(len(rows)):
 #         edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
 #     return adj, edge_strength 
-def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
+def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
 #    adj = np.zeros((n_paths, n_paths), np.bool)
     row_index = []
     col_index = []
@@ -186,6 +186,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
     color_dists = []
     flow_dists = []
     edge_len = []
+    n_overlap = []
 
     from collections import defaultdict
     for i in range(n_paths):
@@ -193,6 +194,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
         color_dists.append(defaultdict(float))
         flow_dists.append(defaultdict(float))
         edge_len.append(defaultdict(int))
+        n_overlap.append(defaultdict(int))
         
     for k in range(n_frames):
         edge_dists_buf = []
@@ -213,14 +215,19 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
            for j in range(sp_label.shape[1]):
                l = sp_label[i,j,k]
                e = edges[i,j,k]
-                         
+               if not mapping.has_key(l):continue
+                                            
                index = mapping[l]
                if i > 0:
                    ll = sp_label[i-1,j,k]
                    if l != ll:
+
+                       if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i-1,j,k] + e
                        edge_length[index][mapping[ll]] += 1
+                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                       
                        adj_list[index].add(mapping[ll])
+
                        
                        # adj[index, mapping[ll]] = 1
                        # edge_values.append(edges[i-1,j,k] + e)
@@ -233,8 +240,10 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
                    ll = sp_label[i+1,j,k]
 
                    if l != ll:
+                       if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i+1,j,k] + e
                        edge_length[index][mapping[ll]] += 1
+                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
                        adj_list[index].add(mapping[ll])
                    
                    # if l!=ll:
@@ -249,8 +258,10 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
                    ll = sp_label[i,j-1,k]
 
                    if l != ll:
+                       if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i,j-1,k] + e
                        edge_length[index][mapping[ll]] += 1
+                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
                        adj_list[index].add(mapping[ll])
                    
                    # if l!=ll:
@@ -264,8 +275,10 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
                    ll = sp_label[i,j+1,k]
 
                    if l != ll:
+                       if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i,j+1,k] + e
                        edge_length[index][mapping[ll]] += 1
+                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
                        adj_list[index].add(mapping[ll])
 
 
@@ -280,7 +293,6 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
                 
                 flow_dists_buf[i][a] = np.linalg.norm(p1.mean_flows[f_index1] - p2.mean_flows[f_index2])**2
                 color_dists_buf[i][a] = np.linalg.norm(p1.mean_rgb[f_index1] - p2.mean_rgb[f_index2])**2
-
                 flow_dists[i][a] = max(flow_dists[i][a],flow_dists_buf[i][a])
                 color_dists[i][a] = max(color_dists[i][a],color_dists_buf[i][a])
 
@@ -288,8 +300,10 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
                     edge_dists[i][a] =edge_dists_buf[i][a]
                     edge_len[i][a] = edge_length[i][a]
 
+                # flow_dists[i][a] += flow_dists_buf[i][a]
+                # color_dists[i][a] += color_dists_buf[i][a]
+                # edge_dists[i][a] += edge_dists_buf[i][a] / edge_length[i][a]
 
-                    
                    # if l!=ll:
                    #     adj[index, mapping[ll]] = 1
                    #     edge_values.append(edges[i,j+1,k] + e)
@@ -297,7 +311,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
                    #     col_index.append(mapping[ll])
 
                    #     count.append(1)
-    return flow_dists, edge_dists, color_dists, edge_len
+    return flow_dists, edge_dists, color_dists, edge_len, n_overlap
                        
 def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
     n_paths = len(paths)
@@ -314,6 +328,8 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
 
         for u in uni:
             orig_id = mappings[i][:u]
+
+            if not id_mapping.has_key(orig_id): continue
             p_id = id_mapping[orig_id]
             u_fg = sp_unary[count][0]
             u_bg = sp_unary[count][1]
@@ -353,12 +369,18 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
         gm.addFactor(fid, [s[0], s[1]])
     print time.time() - t
 
-    from opengm.inference import GraphCut
+    # opengm.hdf5.saveGraphicalModel(gm, "model.h5", "gm")
+    # solve_lsa = "/home/masa/research/vos/lsa/build/solve_lsa model.h5 gm"
+    # os.system(solve_lsa)
 
-    opengm.hdf5.saveGraphicalModel(gm, "model.h5", "gm")        
+    # labels = np.loadtxt("label")
+
+    from opengm.inference import GraphCut
+   
     inf = GraphCut(gm)
     inf.infer()
     labels = inf.arg()
+
 
     count = 0
     mask = []
@@ -411,6 +433,12 @@ from cPickle import load
 with open('paths_%s.pickle' % name) as f:
     paths = load(f)
 
+long_paths = {}
+len_thres = 5
+for id in paths.keys():
+    if paths[id].n_frames >= 5:
+        long_paths[id] = paths[id]
+        
 gt = get_segtrack_gt(name)
 n_gt = len(gt)
 gt_label = np.zeros(sp_label.shape, np.bool)
@@ -422,10 +450,12 @@ labels = []
 gt_thres = 0.5
 label_count = {}
 
-for (i,id) in enumerate(paths.keys()):
-    frame = paths[id].frame
-    rows = paths[id].rows
-    cols = paths[id].cols
+long_paths = paths
+
+for (i,id) in enumerate(long_paths.keys()):
+    frame = long_paths[id].frame
+    rows = long_paths[id].rows
+    cols = long_paths[id].cols
     c = len(np.unique(frame))
 
     if c == 1:
@@ -443,87 +473,63 @@ for (i,id) in enumerate(paths.keys()):
 
         else:
             label_count[id][1] += 1
-
             
     if label_count[id][0] > label_count[id][1]:
         labels.append(1)
     else:
         labels.append(0)
     
-n_paths = len(paths)
+n_paths = len(long_paths)
 
 id_mapping = {}
 id_mapping2 = {}
-for (i,id) in enumerate(paths.keys()):
+for (i,id) in enumerate(long_paths.keys()):
     id_mapping[id] = i
     id_mapping2[i] = id
     
-# adj,edge_strength = path_neighbors(sp_label, n_paths, id_mapping,edges)
-
-# color_dists = []
-# mag_dists = []
-# ang_dists = []
-# row_index = []
-# col_index = []
-# edge_values = []
-# for (i,id) in enumerate(paths.keys()):
-#     p1 = paths[id]
-#     color_dists.append(0)
-#     mag_dists.append(0)
-#     ang_dists.append(0)
-#     row_index.append(i)
-#     col_index.append(i)
-#     edge_values.append(0)
-
-#     for neighbor in np.nonzero(adj[i])[0]:
-#         neighbor_id = id_mapping2[neighbor]
-
-#         p2 = paths[neighbor_id]
-
-#         row_index.append(i)
-#         col_index.append(neighbor)        
-#         color_dists.append(np.linalg.norm(p1.mean_rgb - p2.mean_rgb)**2)
-#         mag_dists.append((p1.median_mag - p2.median_mag) ** 2)
-#         ang_dists.append((p1.median_ang - p2.median_ang) ** 2)
-#         edge_values.append(edge_strength[i,neighbor])
-        
-# sigma_c = 13
-# sigma_mag = 1
-# sigma_ang = 0.1
-# sigma_edge = 0.1
-
-# color_affinity = np.exp(-np.array(color_dists) / (2*sigma_c**2))
-# mag_affinity = np.exp(-np.array(mag_dists) / (2*sigma_mag**2))
-# ang_affinity = np.exp(-np.array(ang_dists) / (2*sigma_ang**2))
-# edge_affinity = np.exp(-np.array(edge_values) / (2*sigma_edge**2))
-
-# w_e = 10
-# w_c = 0
-# w_m = 5
-# w_a = 1
-
-# affinity = w_e * edge_affinity + w_c * color_affinity + w_m * mag_affinity + w_a * ang_affinity
-flow_dists, edge_dists, color_dists,edge_length  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges)                         
+flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, long_paths)
+                         
 row_index = []
 col_index = []
 color = []
 edge = []
 flow = []
+overlaps = []
 
 for i in range(n_paths):
-    row_index.append(i)
-    col_index.append(i)
-    color.append(0)
-    edge.append(0)
-    flow.append(0)
     for a in edge_dists[i].keys():
         row_index.append(i)
         col_index.append(a)
         color.append(color_dists[i][a])
         edge.append(edge_dists[i][a] / edge_length[i][a])
         flow.append(flow_dists[i][a])
+        overlaps.append(n_overlap[i][a])
 
                     
+sigma_c = 70
+sigma_flow = 10
+sigma_edge = 0.3
+
+color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
+flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
+edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
+
+def func(x,lam): return 2*np.exp(-lam*x) - 1
+lam_c = 0.05    
+lam_flow = 0.05    
+lam_edge = 3
+
+#color[edge > 0.8] = 1e10
+#flow[edge > 0.8] = 1e10
+#edge[edge > 0.8] = 1e10
+
+# color_affinity = func(np.array(color), lam_c )
+# flow_affinity = func(np.array(flow),lam_flow )
+# edge_affinity = func(np.array(edge),lam_edge )
+
+# color_affinity *= np.array(overlaps)
+# flow_affinity *= np.array(overlaps)
+# edge_affinity *= np.array(overlaps)
 sigma_c = 70
 sigma_flow = 10
 sigma_edge = 0.3
@@ -542,7 +548,7 @@ w_f = 1
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
 unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
-p_u = path_unary(frames, segs, sp_label, unary, mappings, paths)
+p_u = path_unary(frames, segs, sp_label, unary, mappings, long_paths)
 potts_weight = 1
 
 source = []
@@ -555,7 +561,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 edge_index = np.hstack((np.array(target)[:,np.newaxis], np.array(source)[:,np.newaxis]))                
-mask =  segment(frames, p_u, source, target, aff, segs, 0.01,paths)
+mask =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
 
 for i in range(len(mask)):
     figure(figsize(20,18))
