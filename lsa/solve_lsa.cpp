@@ -37,7 +37,9 @@ typedef opengm::GraphCut<GraphicalModelType, opengm::Minimizer, MinStCutType> Mi
 
 
   //  MinCut lsa(gm);
-    LSATR lsa(gm);
+    LSATR::Parameter param;
+    param.distance_ = LSATR::Parameter::HAMMING;
+    LSATR lsa(gm, param);
     lsa.infer();
 
     std::vector<GraphicalModelType::LabelType> labeling(gm.numberOfVariables());

@@ -254,7 +254,7 @@ def get_feature_for_pairwise(frames, segs):
 
     return features
 
-name = 'bmx'
+name = 'hummingbird'
 
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -365,8 +365,8 @@ pair_features = [np.hstack((color,loc,t))]
 #potts_weight = [1000] bmx
 potts_weight = [1000] 
 final_mask = segment(frames, 10 * np.ascontiguousarray(unary), pair_features, segs, potts_weight)
-final_mask2 = segment2(frames, 10 * np.ascontiguousarray(unary),source, target, value, segs, 10)
-#final_mask2 = final_mask
+final_mask2 = segment2(frames, 10 * np.ascontiguousarray(unary),source, target, value, segs, 1)
+final_mask = final_mask2
 
 for i in range(n_frames-1):
     figure(figsize(20,18))

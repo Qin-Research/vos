@@ -372,6 +372,7 @@ paths_per_cluster = 5
 n_clusters = n_paths / paths_per_cluster
 import time
 t = time.time()
+from sklearn.cluster import affinity_propagation
 cluster_labels = spectral_clustering(affinity, n_clusters=n_clusters, eigen_solver='arpack')
 print time.time() - t
 #plot_value(paths, sp_label, cluster_labels,jet())

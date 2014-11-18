@@ -106,7 +106,7 @@ def get_edge_strength(frames, segs):
     return d
                 
             
-name = 'girl'
+name = 'soldier'
 #name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name

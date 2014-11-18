@@ -329,7 +329,9 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
         for u in uni:
             orig_id = mappings[i][:u]
 
-            if not id_mapping.has_key(orig_id): continue
+            if not id_mapping.has_key(orig_id):
+                print 'foo'
+                continue
             p_id = id_mapping[orig_id]
             u_fg = sp_unary[count][0]
             u_bg = sp_unary[count][1]
@@ -347,6 +349,23 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
     return unary
 
 def segment(frames, unary,source, target, value, segs, potts_weight,paths):
+
+    os.system("matlab -nodisplay -nojvm -nosplash < /home/masa/research/LSA/optimize.m");
+    labels = loadmat('labeling.mat')['labels']
+    count = 0
+    mask = []
+    r,c = segs[0].shape
+    mask_label = np.zeros((r,c,len(segs)))
+
+    for (i,path) in enumerate(paths.values()):
+        if labels[i][0] == 0:
+            mask_label[path.rows, path.cols, path.frame] = 1
+            
+    for j in range(len(segs)):
+        mask.append(mask_label[:,:,j])
+    
+    return mask
+
     import opengm
 
     n_nodes = unary.shape[0]
@@ -369,11 +388,11 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
         gm.addFactor(fid, [s[0], s[1]])
     print time.time() - t
 
-    # opengm.hdf5.saveGraphicalModel(gm, "model.h5", "gm")
-    # solve_lsa = "/home/masa/research/vos/lsa/build/solve_lsa model.h5 gm"
-    # os.system(solve_lsa)
+    opengm.hdf5.saveGraphicalModel(gm, "model.h5", "gm")
+    solve_lsa = "/home/masa/research/vos/lsa/build/solve_lsa model.h5 gm"
+    os.system(solve_lsa)
 
-    # labels = np.loadtxt("label")
+    labels = np.loadtxt("label")
 
     from opengm.inference import GraphCut
    
@@ -408,12 +427,11 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
                 
     return mask
                            
-name = 'bmx'
-
+#name = 'hummingbird'
+name = 'soldier'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
-
 
 mag = np.sqrt(vx**2 + vy ** 2)
 angle = np.arctan2(vx,vy)
@@ -422,11 +440,10 @@ from skimage.filter import vsobel,hsobel
 frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")]
 imgs = [img_as_ubyte(imread(f)) for f in frames]
         
-
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load
@@ -439,46 +456,7 @@ for id in paths.keys():
     if paths[id].n_frames >= 5:
         long_paths[id] = paths[id]
         
-gt = get_segtrack_gt(name)
-n_gt = len(gt)
-gt_label = np.zeros(sp_label.shape, np.bool)
-for i in range(sp_label.shape[2]):
-    gt_label[:,:,i] = gt[0][i].astype(np.bool)
-    if n_gt > 1: gt_label[:,:,i] += gt[1][i].astype(np.bool)
-    
-labels = []
-gt_thres = 0.5
-label_count = {}
-
 long_paths = paths
-
-for (i,id) in enumerate(long_paths.keys()):
-    frame = long_paths[id].frame
-    rows = long_paths[id].rows
-    cols = long_paths[id].cols
-    c = len(np.unique(frame))
-
-    if c == 1:
-        labels.append(np.mean(gt_label[rows, cols, frame[0]]) > gt_thres)
-        continue
-
-    label_count[id] = np.zeros(2)    
-    unique_frame = np.unique(frame)
-
-    for u in unique_frame:
-        rs = rows[frame == u]
-        cs = cols[frame == u]
-        if np.mean(gt_label[rs,cs,u]) > gt_thres:
-            label_count[id][0] += 1
-
-        else:
-            label_count[id][1] += 1
-            
-    if label_count[id][0] > label_count[id][1]:
-        labels.append(1)
-    else:
-        labels.append(0)
-    
 n_paths = len(long_paths)
 
 id_mapping = {}
@@ -506,13 +484,13 @@ for i in range(n_paths):
         overlaps.append(n_overlap[i][a])
 
                     
-sigma_c = 70
-sigma_flow = 10
-sigma_edge = 0.3
+# sigma_c = 70
+# sigma_flow = 10
+# sigma_edge = 0.3
 
-color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
-flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
-edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
+# color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
+# flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
+# edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
 
 def func(x,lam): return 2*np.exp(-lam*x) - 1
 lam_c = 0.05    
@@ -523,29 +501,20 @@ lam_edge = 3
 #flow[edge > 0.8] = 1e10
 #edge[edge > 0.8] = 1e10
 
-# color_affinity = func(np.array(color), lam_c )
-# flow_affinity = func(np.array(flow),lam_flow )
-# edge_affinity = func(np.array(edge),lam_edge )
+lam_c = 0.00003
+lam_flow = 0.05    
+lam_edge = 2
 
-# color_affinity *= np.array(overlaps)
-# flow_affinity *= np.array(overlaps)
-# edge_affinity *= np.array(overlaps)
-sigma_c = 70
-sigma_flow = 10
-sigma_edge = 0.3
+color_affinity = func(np.array(color), lam_c )
+flow_affinity = func(np.array(flow),lam_flow )
+edge_affinity = func(np.array(edge),lam_edge )
 
-color_affinity = np.exp(-np.array(color) / (2*sigma_c**2))
-flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
-edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
-
-color_affinity[edge > 0.8] = 0
-flow_affinity[edge > 0.8] = 0
-edge_affinity[edge > 0.8] = 0
-
-w_e = 1
+w_e = 5
 w_c = 5
-w_f = 1
+w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
+
+#affinity *= np.array(overlaps)
 
 unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
 p_u = path_unary(frames, segs, sp_label, unary, mappings, long_paths)
@@ -560,7 +529,17 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         target.append(c)
         aff.append(a)
 
-edge_index = np.hstack((np.array(target)[:,np.newaxis], np.array(source)[:,np.newaxis]))                
+PE = np.zeros((len(source), 6))
+potts_weight = 1
+PE[:,0] = np.array(target)+1
+PE[:,1] = np.array(source)+1
+PE[:,3] = np.array(aff)* potts_weight
+PE[:,4] = np.array(aff)* potts_weight
+
+from scipy.io import savemat
+
+savemat('energy.mat', {'UE':p_u.transpose(), 'PE':PE})
+
 mask =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
 
 for i in range(len(mask)):
@@ -571,11 +550,9 @@ for i in range(len(mask)):
     subplot(1,2,1)
     imshow(im)
     axis("off")
-
     subplot(1,2,2)
     imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
     axis("off")    
-    
     show() 
     
 # paths_per_cluster = 5
