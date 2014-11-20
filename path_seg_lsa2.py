@@ -78,100 +78,8 @@ def plot_cluster(frames, paths, sp_label, cluster_label, n):
         imshow(alpha_composite(im, mask_to_rgb(masks[i], (0,255,0))),cmap=gray())        
         axis("off")    
     
-        show() 
-    
+        show()
         
-# def path_neighbors(sp_label, n_paths, mapping, edges):
-#     adj = np.zeros((n_paths, n_paths), np.bool)
-#     row_index = []
-#     col_index = []
-#     edge_values =[]
-
-#     count =[]
-    
-#     n_frames = sp_label.shape[2]
-
-#     for i in range(sp_label.shape[0]):
-#        for j in range(sp_label.shape[1]):
-#            for k in range(n_frames):
-#                l = sp_label[i,j,k]
-#                e = edges[i,j,k]
-                         
-#                index = mapping[l]
-#                if i > 0:
-#                    ll = sp_label[i-1,j,k]
-#                    if l!=ll:
-#                        adj[index, mapping[ll]] = 1
-# #                       adj[mapping[ll], index] = 1
-#                        edge_values.append(edges[i-1,j,k] + e)
-#                        row_index.append(index)
-#                        col_index.append(mapping[ll])
-
-#                        count.append(1)
-                                
-                       
-#                if i < sp_label.shape[0]-1:
-#                    ll = sp_label[i+1,j,k]
-#                    if l!=ll:
-#                        adj[index, mapping[ll]] = 1
-#  #                      adj[mapping[ll], index] = 1
-#                        edge_values.append(edges[i+1,j,k] + e)
-#                        row_index.append(index)
-#                        col_index.append(mapping[ll])
-
-#                        count.append(1)
-                       
-#                if j > 0:
-#                    ll = sp_label[i,j-1,k]
-#                    if l!=ll:
-#                        adj[index, mapping[ll]] = 1
-#   #                     adj[mapping[ll], index] = 1
-#                        edge_values.append(edges[i,j-1,k] + e)
-#                        row_index.append(index)
-#                        col_index.append(mapping[ll])
-
-#                        count.append(1)
-                                              
-#                if j < sp_label.shape[1] -1:
-#                    ll = sp_label[i,j+1,k]
-#                    if l!=ll:
-#                        adj[index, mapping[ll]] = 1
-#    #                    adj[mapping[ll], index] = 1
-#                        edge_values.append(edges[i,j+1,k] + e)
-#                        row_index.append(index)
-#                        col_index.append(mapping[ll])
-
-#                        count.append(1)
-                       
-#     #            if k < n_frames-1:
-#     #                ll = sp_label[i,j,k+1]
-#     #                if l!=ll:
-#     #                    adj[index, mapping[ll]] = 1
-#     # #                   adj[mapping[ll], index] = 1
-#     #                    edge_values.append(edges[i,j,k+1] + e)
-#     #                    row_index.append(index)
-#     #                    col_index.append(mapping[ll])
-
-#     #                    count.append(1)
-
-#     #            if k > 0:
-#     #                ll = sp_label[i,j,k-1]
-#     #                if l!=ll:
-#     #                    adj[index, mapping[ll]] = 1
-#     #  #                  adj[mapping[ll], index] = 1
-#     #                    edge_values.append(edges[i,j,k-1] + e)
-#     #                    row_index.append(index)
-#     #                    col_index.append(mapping[ll])
-#     #                    count.append(1)                       
-
-#     edge_strength = csr_matrix((edge_values, (row_index, col_index)), shape=(n_paths, n_paths))                       
-#     count_matrix = csr_matrix((count, (row_index, col_index)), shape=(n_paths, n_paths))
-
-#     rows, cols = count_matrix.nonzero()
-
-#     for i in range(len(rows)):
-#         edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
-#     return adj, edge_strength 
 def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
 #    adj = np.zeros((n_paths, n_paths), np.bool)
     row_index = []
@@ -330,17 +238,16 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
             orig_id = mappings[i][:u]
 
             if not id_mapping.has_key(orig_id):
-                print 'foo'
                 count += 1
                 continue
             p_id = id_mapping[orig_id]
             u_fg = sp_unary[count][0]
             u_bg = sp_unary[count][1]
 
-            unary[p_id][0] = max(unary[p_id][0], u_fg)
-            unary[p_id][1] = max(unary[p_id][1], u_bg)
-            # unary[p_id][0] += u_fg
-            # unary[p_id][1] += u_bg
+#           unary[p_id][0] = max(unary[p_id][0], u_fg)
+#           unary[p_id][1] = max(unary[p_id][1], u_bg)
+            unary[p_id][0] += u_fg
+            unary[p_id][1] += u_bg
 
             count += 1
             
@@ -362,7 +269,7 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
         if labels[i][0] == 0:
             mask_label[path.rows, path.cols, path.frame] = 1
         else:
-            mask_label[path.rows, path.cols, path.frame] = 0
+            mask_label[path.rows, path.cols, path.frame] = 0            
             
     for j in range(len(segs)):
         mask.append(mask_label[:,:,j])
@@ -430,8 +337,8 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
                 
     return mask
                            
-#name = 'hummingbird'
-name = 'bmx'
+name = 'soldier'
+#name = 'bmx'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -459,7 +366,6 @@ for id in paths.keys():
     if paths[id].n_frames >= 5:
         long_paths[id] = paths[id]
         
-long_paths = paths
 n_paths = len(long_paths)
 
 id_mapping = {}
@@ -469,6 +375,9 @@ for (i,id) in enumerate(long_paths.keys()):
     id_mapping2[i] = id
     
 flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, long_paths)
+unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
+p_u = path_unary(frames, segs, sp_label, unary, mappings, long_paths)
+
                          
 row_index = []
 col_index = []
@@ -495,6 +404,7 @@ for i in range(n_paths):
 # flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
 # edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
 
+
 def func(x,lam): return 2*np.exp(-lam*x) - 1
 lam_c = 0.05    
 lam_flow = 0.05    
@@ -512,15 +422,13 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 
-w_e = 5
-w_c = 5
-w_f = 0
+w_e = 1
+w_c = 10
+w_f = 1
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
-#affinity *= np.array(overlaps)
+affinity *= np.array(overlaps)
 
-unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
-p_u = path_unary(frames, segs, sp_label, unary, mappings, long_paths)
 potts_weight = 1
 
 source = []
@@ -533,7 +441,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 PE = np.zeros((len(source), 6))
-potts_weight = 1
+potts_weight = 0
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -560,6 +468,7 @@ for i in range(len(mask)):
     subplot(1,3,3)
     imshow(mask[i],gray())    
     show() 
+    
     
 # paths_per_cluster = 5
 # n_clusters = n_paths / paths_per_cluster
