@@ -17,7 +17,7 @@ from video_util import *
 from path import Path
 
 name = 'soldier'
-#name = 'girl'
+name = 'girl'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -41,10 +41,11 @@ for i in range(sp_label.shape[2]):
     gt_label[:,:,i] = gt[0][i].astype(np.bool)
     if n_gt > 1: gt_label[:,:,i] += gt[1][i].astype(np.bool)
 
-from cPickle import load
-with open('paths_%s.pickle' % name) as f:
-    paths = load(f)
+# from cPickle import load
+# with open('paths_%s.pickle' % name) as f:
+#     paths = load(f)
 
+paths = {}
 n = np.unique(sp_label)            
 inlier = []
 inlier_count = []

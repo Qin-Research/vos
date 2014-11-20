@@ -431,7 +431,7 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
     return mask
                            
 #name = 'hummingbird'
-name = 'bmx'
+name = 'girl'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -446,7 +446,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load

@@ -256,6 +256,54 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
 
     return unary
 
+
+def path_unary2(frames, segs, sp_label, sp_unary, mappings, paths,forest):
+    n_paths = len(paths)
+    unary = np.zeros((n_paths, 2))
+    new_unary = np.zeros((n_paths, 2))
+    n_frames = len(frames)-1
+
+    id_mapping = {}
+    for (i,id) in enumerate(paths.keys()):
+        id_mapping[id] = i
+
+    count = 0
+    rgb_data = np.zeros((sp_unary.shape[0],3))
+    for i in range(n_frames):
+        uni = np.unique(segs[i])
+
+        im = img_as_ubyte(imread(frames[i]))
+        for u in uni:
+            rgb_data[count] = np.mean(im[segs[i] == u],axis=0)
+            count += 1
+            
+    prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)            
+    count = 0            
+    for i in range(n_frames):
+        uni = np.unique(segs[i])
+
+        im = img_as_ubyte(imread(frames[i]))
+        for u in uni:
+            
+            orig_id = mappings[i][:u]
+
+            p_id = id_mapping[orig_id]
+            u_fg = sp_unary[count][0]
+            u_bg = sp_unary[count][1]
+
+#           unary[p_id][0] = max(unary[p_id][0], u_fg)
+#           unary[p_id][1] = max(unary[p_id][1], u_bg)
+            unary[p_id][0] += u_fg
+            unary[p_id][1] += u_bg
+
+            new_unary[p_id] += prob[count]
+            count += 1
+            
+    # for (i,id) in enumerate(paths.keys()):
+    #     unary[i] /= paths[id].n_frames
+
+    return unary, new_unary
+
 def segment(frames, unary,source, target, value, segs, potts_weight,paths):
 
     os.system("matlab -nodisplay -nojvm -nosplash < /home/masa/research/LSA/optimize.m");
@@ -337,8 +385,8 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
                 
     return mask
                            
+name = 'girl'
 name = 'soldier'
-#name = 'bmx'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -353,7 +401,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load
@@ -422,9 +470,9 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 
-w_e = 1
+w_e = 0
 w_c = 10
-w_f = 1
+w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
 affinity *= np.array(overlaps)
@@ -441,7 +489,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 PE = np.zeros((len(source), 6))
-potts_weight = 0
+potts_weight = 1
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -468,8 +516,128 @@ for i in range(len(mask)):
     subplot(1,3,3)
     imshow(mask[i],gray())    
     show() 
+
+#############################################################################################333
+
+
     
+data = []
+labels = []        
+for m in mask:
+    im = img_as_ubyte(imread(frames[i]))                
+    fg_sample = im[m == 1]
+    data.append(fg_sample)
+    labels.append(np.zeros(len(fg_sample), np.bool))
+    bg_sample = im[m == 0]
+    data.append(bg_sample)
+    labels.append(np.ones(len(bg_sample), np.bool))
+
+data = np.vstack(data)
+labels = np.concatenate(labels)        
+
+from sklearn.ensemble import RandomForestClassifier
+forest = RandomForestClassifier(20)
+forest.fit(data,labels)
+
+id_mapping = {}
+id_mapping2 = {}
+for (i,id) in enumerate(paths.keys()):
+    id_mapping[id] = i
+    id_mapping2[i] = id
     
+flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, paths)
+
+p_u, new_p_u = path_unary2(frames, segs, sp_label, unary, mappings, paths,forest)
+
+                         
+row_index = []
+col_index = []
+color = []
+edge = []
+flow = []
+overlaps = []
+
+for i in range(n_paths):
+    for a in edge_dists[i].keys():
+        row_index.append(i)
+        col_index.append(a)
+        color.append(color_dists[i][a])
+        edge.append(edge_dists[i][a] / edge_length[i][a])
+        flow.append(flow_dists[i][a])
+        overlaps.append(n_overlap[i][a])
+                    
+# sigma_c = 70
+# sigma_flow = 10
+# sigma_edge = 0.3
+
+# color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
+# flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
+# edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
+
+
+def func(x,lam): return 2*np.exp(-lam*x) - 1
+lam_c = 0.05    
+lam_flow = 0.05    
+lam_edge = 3
+
+#color[edge > 0.8] = 1e10
+#flow[edge > 0.8] = 1e10
+#edge[edge > 0.8] = 1e10
+
+lam_c = 0.00003
+lam_flow = 0.05    
+lam_edge = 2
+
+color_affinity = func(np.array(color), lam_c )
+flow_affinity = func(np.array(flow),lam_flow )
+edge_affinity = func(np.array(edge),lam_edge )
+
+w_e = 0
+w_c = 10
+w_f = 0
+affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
+
+affinity *= np.array(overlaps)
+
+potts_weight = 1
+
+source = []
+target = []
+aff = []
+for (r,c,a) in zip(row_index, col_index, affinity):
+    if r != c:
+        source.append(r)
+        target.append(c)
+        aff.append(a)
+
+PE = np.zeros((len(source), 6))
+potts_weight = 0
+PE[:,0] = np.array(target)+1
+PE[:,1] = np.array(source)+1
+PE[:,3] = np.array(aff)* potts_weight
+PE[:,4] = np.array(aff)* potts_weight
+
+
+savemat('energy.mat', {'UE':p_u.transpose(), 'PE':PE})
+
+mask =  segment(frames, p_u, source, target, aff, segs, 0.01,paths)
+
+for i in range(len(mask)):
+    figure(figsize(20,18))
+
+    print i
+    im = img_as_ubyte(imread(frames[i]))            
+    subplot(1,3,1)
+    imshow(im)
+    axis("off")
+    subplot(1,3,2)
+    imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
+    axis("off")
+
+    subplot(1,3,3)
+    imshow(mask[i],gray())    
+    show() 
+
 # paths_per_cluster = 5
 # n_clusters = n_paths / paths_per_cluster
 # import time
