@@ -322,7 +322,7 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
     for j in range(len(segs)):
         mask.append(mask_label[:,:,j])
     
-    return mask
+    return mask,labels
 
     import opengm
 
@@ -386,7 +386,7 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
     return mask
                            
 name = 'girl'
-name = 'soldier'
+name = 'hummingbird'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -401,7 +401,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load
@@ -499,41 +499,66 @@ from scipy.io import savemat
 
 savemat('energy.mat', {'UE':p_u.transpose(), 'PE':PE})
 
-mask =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
+mask,labels =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
 
-for i in range(len(mask)):
-    figure(figsize(20,18))
+# for i in range(len(mask)):
+#     figure(figsize(20,18))
 
-    print i
-    im = img_as_ubyte(imread(frames[i]))            
-    subplot(1,3,1)
-    imshow(im)
-    axis("off")
-    subplot(1,3,2)
-    imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
-    axis("off")
+#     print i
+#     im = img_as_ubyte(imread(frames[i]))            
+#     subplot(1,3,1)
+#     imshow(im)
+#     axis("off")
+#     subplot(1,3,2)
+#     imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
+#     axis("off")
 
-    subplot(1,3,3)
-    imshow(mask[i],gray())    
-    show() 
+#     subplot(1,3,3)
+#     imshow(mask[i],gray())    
+#     show() 
 
 #############################################################################################333
 
 
     
 data = []
-labels = []        
-for m in mask:
-    im = img_as_ubyte(imread(frames[i]))                
-    fg_sample = im[m == 1]
-    data.append(fg_sample)
-    labels.append(np.zeros(len(fg_sample), np.bool))
-    bg_sample = im[m == 0]
-    data.append(bg_sample)
-    labels.append(np.ones(len(bg_sample), np.bool))
+lbl = []
+ims = []
+for f in frames: ims.append(img_as_ubyte(imread(f))        )
+
+for (i,id) in enumerate(long_paths.keys()):
+    frame = long_paths[id].frame
+    rows = long_paths[id].rows
+    cols = long_paths[id].cols
+    
+    unique_frame = np.unique(frame)
+    mean_rgbs = np.zeros((len(unique_frame),3))
+    for (j,f) in enumerate(unique_frame):
+        im = ims[f]
+        mean_rgbs[j] = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
+
+    data.append(mean_rgbs)        
+    if labels[i] == 0:
+        lbl.append(np.zeros(len(unique_frame)))
+    else:
+        lbl.append(np.ones(len(unique_frame)))
+        
+# for (i,m) in enumerate(mask):
+#     im = img_as_ubyte(imread(frames[i]))
+#     # uni = np.unique(segs[i])
+#     # for u in uni:
+#     #     rows, cols = np.nonzero(segs[i] == u)
+        
+    
+#     fg_sample = im[m == 1]
+#     data.append(fg_sample)
+#     labels.append(np.zeros(len(fg_sample), np.bool))
+#     bg_sample = im[m == 0]
+#     data.append(bg_sample)
+#     labels.append(np.ones(len(bg_sample), np.bool))
 
 data = np.vstack(data)
-labels = np.concatenate(labels)        
+labels = np.concatenate(lbl)        
 
 from sklearn.ensemble import RandomForestClassifier
 forest = RandomForestClassifier(20)
@@ -544,12 +569,12 @@ id_mapping2 = {}
 for (i,id) in enumerate(paths.keys()):
     id_mapping[id] = i
     id_mapping2[i] = id
-    
+
+n_paths = len(paths)    
 flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, paths)
 
 p_u, new_p_u = path_unary2(frames, segs, sp_label, unary, mappings, paths,forest)
 
-                         
 row_index = []
 col_index = []
 color = []
@@ -592,7 +617,7 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 
-w_e = 0
+w_e = 5
 w_c = 10
 w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
@@ -611,31 +636,40 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 PE = np.zeros((len(source), 6))
-potts_weight = 0
+potts_weight = 1
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
 
-savemat('energy.mat', {'UE':p_u.transpose(), 'PE':PE})
+u = 100 * new_p_u +1* p_u
+savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
-mask =  segment(frames, p_u, source, target, aff, segs, 0.01,paths)
+new_mask, labeling =  segment(frames, u, source, target, aff, segs, 0.01,paths)
+#new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
-for i in range(len(mask)):
-    figure(figsize(20,18))
+for i in range(len(new_mask)):
+    figure(figsize(21,18))
 
     print i
     im = img_as_ubyte(imread(frames[i]))            
-    subplot(1,3,1)
+    subplot(1,4,1)
     imshow(im)
     axis("off")
-    subplot(1,3,2)
+    
+    subplot(1,4,2)
     imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
     axis("off")
 
-    subplot(1,3,3)
-    imshow(mask[i],gray())    
+    subplot(1,4,3)
+    imshow(mask[i],gray())
+    axis("off")
+
+    subplot(1,4,4)
+    imshow(alpha_composite(im, mask_to_rgb(new_mask[i], (0,255,0))),cmap=gray())        
+    axis("off")
+        
     show() 
 
 # paths_per_cluster = 5
