@@ -10,6 +10,7 @@ from sklearn.preprocessing import scale
 from sklearn.cluster import spectral_clustering
 from skimage.color import rgb2gray,rgb2lab
 from skimage.feature import hog
+from skimage.morphology import *
 from joblib import Parallel, delayed
 from skimage.segmentation import find_boundaries
 from video_graph import *
@@ -256,7 +257,115 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
 
     return unary
 
+def plot_job(path1, path2, v, r,c,n_frame):
+    
+    aff = np.zeros((r,c,n_frame))
+    rows1 = path1.rows
+    cols1 = path1.cols
+    frame1 = path1.frame
 
+    rows2 = path2.rows
+    cols2 = path2.cols
+    frame2 = path2.frame
+
+    overlap_frame = np.intersect1d(np.unique(frame1), np.unique(frame2))
+
+    for f in overlap_frame:
+
+        rws1 = rows1[frame1 == f]
+        cls1 = cols1[frame1 == f]
+
+        mask1 = np.zeros((r,c))
+        mask1[rws1, cls1] = 1
+        mask1 = binary_dilation(mask1, square(3))
+
+        rws2 = rows2[frame2 == f]
+        cls2 = cols2[frame2 == f]
+        mask2 = np.zeros((r,c))
+        mask2[rws2, cls2] = 1
+        
+        row_index,col_index = np.nonzero(np.logical_and(mask1, mask2))
+        
+        aff[row_index, col_index, f] = v
+
+    return aff
+        
+def plot_affinity(p1, p2, affinity, frames, sp_label, paths, id_mapping, id_mapping2,n_jobs=1):
+
+    r,c,n_frame = sp_label.shape    
+        
+    affs = Parallel(n_jobs= n_jobs)(delayed(plot_job)(paths[id_mapping2[i]], paths[id_mapping2[j]], v, r, c, n_frame) for (iter,(i,j,v)) in zip(p1, p2, affinity))
+
+    for aff in affs[1:]:
+        affs[0] += aff
+
+    aff = affs[0]
+
+    for i in range(sp_label.shape[2]):
+
+        figure(figsize(21,18))
+        im = imread(frames[i])
+
+        subplot(1,2,1)
+        imshow(im)
+
+        subplot(1,2,2)
+        imshow(aff[:,:,i])
+
+        show()
+
+def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
+
+    r,c,n_frame = sp_label.shape
+    aff = np.ones((r,c,n_frame)) * inf
+
+        
+    for k in range(n_frame):
+        for j in range(c):
+            for i in range(r):
+               l = sp_label[i,j,k]
+               index = id_mapping[l]
+               
+               if i > 0:
+                   ll = sp_label[i-1,j,k]
+                   if l != ll:
+                       aff[i,j,k] = affinity[index][id_mapping[ll]]
+
+               if i < sp_label.shape[0]-1:
+                   ll = sp_label[i+1,j,k]
+
+                   if l != ll:
+                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       
+               if j > 0:
+                   ll = sp_label[i,j-1,k]
+
+                   if l != ll:
+                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                                              
+               if j < sp_label.shape[1] -1:
+                   ll = sp_label[i,j+1,k]
+
+                   if l != ll:
+                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+
+    for i in range(sp_label.shape[2]):
+
+        figure(figsize(21,18))
+        im = imread(frames[i])
+
+        subplot(1,2,1)
+        imshow(im)
+        axis("off")
+
+        subplot(1,2,2)
+        imshow(aff[:,:,i],jet())
+        axis("off")
+        colorbar()
+
+        show()
+                                       
+          
 def path_unary2(frames, segs, sp_label, sp_unary, mappings, paths,forest):
     n_paths = len(paths)
     unary = np.zeros((n_paths, 2))
@@ -385,8 +494,8 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
                 
     return mask
                            
-name = 'girl'
-name = 'hummingbird'
+name = 'bmx'
+
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
@@ -401,7 +510,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load
@@ -426,7 +535,6 @@ flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_l
 unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
 p_u = path_unary(frames, segs, sp_label, unary, mappings, long_paths)
 
-                         
 row_index = []
 col_index = []
 color = []
@@ -475,7 +583,7 @@ w_c = 10
 w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
-affinity *= np.array(overlaps)
+#affinity *= np.array(overlaps)
 
 potts_weight = 1
 
@@ -500,22 +608,6 @@ from scipy.io import savemat
 savemat('energy.mat', {'UE':p_u.transpose(), 'PE':PE})
 
 mask,labels =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
-
-# for i in range(len(mask)):
-#     figure(figsize(20,18))
-
-#     print i
-#     im = img_as_ubyte(imread(frames[i]))            
-#     subplot(1,3,1)
-#     imshow(im)
-#     axis("off")
-#     subplot(1,3,2)
-#     imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
-#     axis("off")
-
-#     subplot(1,3,3)
-#     imshow(mask[i],gray())    
-#     show() 
 
 #############################################################################################333
 
@@ -542,20 +634,6 @@ for (i,id) in enumerate(long_paths.keys()):
         lbl.append(np.zeros(len(unique_frame)))
     else:
         lbl.append(np.ones(len(unique_frame)))
-        
-# for (i,m) in enumerate(mask):
-#     im = img_as_ubyte(imread(frames[i]))
-#     # uni = np.unique(segs[i])
-#     # for u in uni:
-#     #     rows, cols = np.nonzero(segs[i] == u)
-        
-    
-#     fg_sample = im[m == 1]
-#     data.append(fg_sample)
-#     labels.append(np.zeros(len(fg_sample), np.bool))
-#     bg_sample = im[m == 0]
-#     data.append(bg_sample)
-#     labels.append(np.ones(len(bg_sample), np.bool))
 
 data = np.vstack(data)
 labels = np.concatenate(lbl)        
@@ -617,24 +695,34 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 
-w_e = 5
+w_e = e
 w_c = 10
 w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
-affinity *= np.array(overlaps)
+#affinity *= np.array(overlaps)
 
 potts_weight = 1
 
 source = []
 target = []
 aff = []
+
 for (r,c,a) in zip(row_index, col_index, affinity):
     if r != c:
         source.append(r)
         target.append(c)
         aff.append(a)
 
+aff_dict = []
+for i in range(n_paths):
+    aff_dict.append({})
+
+for (s,t,a) in zip(source, target, aff):
+    aff_dict[s][t] = a   
+
+plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
+            
 PE = np.zeros((len(source), 6))
 potts_weight = 1
 PE[:,0] = np.array(target)+1
@@ -642,11 +730,11 @@ PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-
-u = 100 * new_p_u +1* p_u
+u = 100 * new_p_u +0* p_u
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
 new_mask, labeling =  segment(frames, u, source, target, aff, segs, 0.01,paths)
+
 #new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
 for i in range(len(new_mask)):
@@ -672,12 +760,3 @@ for i in range(len(new_mask)):
         
     show() 
 
-# paths_per_cluster = 5
-# n_clusters = n_paths / paths_per_cluster
-# import time
-# t = time.time()
-# cluster_labels = spectral_clustering(affinity_matrix, n_clusters=n_clusters, eigen_solver='arpack')
-# print time.time() - t
-# plot_value(paths, sp_label, cluster_labels,jet())
-
-# good_cluster,bad_cluster = cluster_check(paths, cluster_labels,labels)
