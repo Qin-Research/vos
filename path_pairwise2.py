@@ -246,7 +246,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load

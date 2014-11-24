@@ -319,7 +319,6 @@ def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
     r,c,n_frame = sp_label.shape
     aff = np.ones((r,c,n_frame)) * inf
 
-        
     for k in range(n_frame):
         for j in range(c):
             for i in range(r):
@@ -349,6 +348,8 @@ def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
                    if l != ll:
                        aff[i,j,k] = affinity[index][id_mapping[ll]]                       
 
+
+
     for i in range(sp_label.shape[2]):
 
         figure(figsize(21,18))
@@ -365,6 +366,7 @@ def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
 
         show()
                                        
+    return aff
           
 def path_unary2(frames, segs, sp_label, sp_unary, mappings, paths,forest):
     n_paths = len(paths)
@@ -493,7 +495,23 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
         # mask.append(new_mask)
                 
     return mask
-                           
+
+def plot_affinities(frames, affs):
+    n = len(affs)
+    n_frames = affs[0].shape[2]
+
+    for i in range(n_frames):
+        im = imread(frames[i])
+        subplot(1,n+1,1)
+        imshow(im)
+        for j in range(n):
+            subplot(1,n+1,j+2)
+            imshow(affs[j][:,:,i],jet())
+            axis('off')
+
+        show()
+
+        
 name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -510,7 +528,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load
@@ -578,11 +596,11 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 
-w_e = 0
-w_c = 10
+w_e = 10
+w_c = 0
 w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
-
+aff_weighted = affinity *np.array(overlaps)
 #affinity *= np.array(overlaps)
 
 potts_weight = 1
@@ -694,12 +712,12 @@ lam_edge = 2
 color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
-
-w_e = e
-w_c = 10
+w_e = 10
+w_c = 0
 w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
+aff_weighted = affinity *np.array(overlaps)
 #affinity *= np.array(overlaps)
 
 potts_weight = 1
@@ -707,21 +725,26 @@ potts_weight = 1
 source = []
 target = []
 aff = []
+aff2 = []
 
-for (r,c,a) in zip(row_index, col_index, affinity):
+for (r,c,a,a2) in zip(row_index, col_index, affinity, aff_weighted):
     if r != c:
         source.append(r)
         target.append(c)
         aff.append(a)
+        aff2.append(a2)
 
 aff_dict = []
+aff_dict2 = []
 for i in range(n_paths):
     aff_dict.append({})
+    aff_dict2.append({})
 
-for (s,t,a) in zip(source, target, aff):
+for (s,t,a,a2) in zip(source, target, aff,aff2):
     aff_dict[s][t] = a   
+    aff_dict2[s][t] = a2   
 
-plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
+aff_vis = plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
             
 PE = np.zeros((len(source), 6))
 potts_weight = 1
@@ -730,12 +753,13 @@ PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-u = 100 * new_p_u +0* p_u
+u = 100 * new_p_u +1* p_u
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
 new_mask, labeling =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
 #new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
+
 
 for i in range(len(new_mask)):
     figure(figsize(21,18))
@@ -760,3 +784,54 @@ for i in range(len(new_mask)):
         
     show() 
 
+
+#################################################################################
+        
+gt = get_segtrack_gt(name)
+n_gt = len(gt)
+gt_label = np.zeros(sp_label.shape, np.bool)
+for i in range(sp_label.shape[2]):
+    gt_label[:,:,i] = gt[0][i].astype(np.bool)
+    if n_gt > 1: gt_label[:,:,i] += gt[1][i].astype(np.bool)
+    
+labels = []
+gt_thres = 0.5
+label_count = {}
+
+for (i,id) in enumerate(paths.keys()):
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
+    c = len(np.unique(frame))
+
+    if c == 1:
+        labels.append(np.mean(gt_label[rows, cols, frame[0]]) > gt_thres)
+        continue
+
+    label_count[id] = np.zeros(2)    
+    unique_frame = np.unique(frame)
+
+    for u in unique_frame:
+        rs = rows[frame == u]
+        cs = cols[frame == u]
+        if np.mean(gt_label[rs,cs,u]) > gt_thres:
+            label_count[id][0] += 1
+
+        else:
+            label_count[id][1] += 1
+            
+    if label_count[id][0] > label_count[id][1]:
+        labels.append(1)
+    else:
+        labels.append(0)
+    
+# aff_matrix = csr_matrix((affinity, (row_index, col_index)), shape=(n_paths, n_paths))    
+# paths_per_cluster = 5
+# n_clusters = n_paths / paths_per_cluster
+# import time
+# t = time.time()
+# cluster_labels = spectral_clustering(aff_matrix, n_clusters=n_clusters, eigen_solver='arpack')
+# print time.time() - t
+# #plot_value(paths, sp_label, cluster_labels,jet())
+
+# good_cluster,bad_cluster = cluster_check(paths, cluster_labels,labels)
