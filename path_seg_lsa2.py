@@ -29,6 +29,8 @@ def plot_value(paths, sp_label, values,cm):
         imshow(val[:,:,i], cm)
         show()
 
+    return val
+
 def cluster_check(paths, cluster_label,true_label):
     unique_label = np.unique(cluster_label)
 
@@ -512,7 +514,8 @@ def plot_affinities(frames, affs):
         show()
 
         
-name = 'bmx'
+#name = 'bmx'
+name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -528,7 +531,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 from skimage.filter import vsobel,hsobel
     
 from cPickle import load
@@ -537,20 +540,34 @@ with open('paths_%s.pickle' % name) as f:
 
 loc_prob = np.load('loc_%s.npy' % name)[:,np.newaxis]
 loc_prob /= np.max(loc_prob)
-prob = np.hstack((loc_prob, 1-loc_prob)) + 1e-10
-p_u = -np.log(prob)
+loc_prob = np.hstack((loc_prob, 1-loc_prob)) + 1e-10
+
+color_prob = np.load('forest_%s.npy' % name) + 1e-10
+
+
+u_loc = -np.log(loc_prob)
+u_color = -np.log(color_prob)
 
 long_paths = {}
 len_thres = 5
-loc_u = {}
+loc_long = {}
+color_long = {}
 for (i,id) in enumerate(paths.keys()):
     if paths[id].n_frames >= 5:
         long_paths[id] = paths[id]
-        loc_u[id] = p_u[i]
+        loc_long[id] = loc_prob[i]
+        color_long[id] = color_prob[i]
 
-u = []
-for v in loc_u.values(): u.append(v)
-p_u_long = np.array(u)
+ls = []
+cs = []
+for (l,c) in zip(loc_long.values(), color_long.values()):
+    ls.append(l)
+    cs.append(c)
+    
+ls = np.array(ls)
+cs = np.vstack(cs)
+
+
 n_paths = len(long_paths)
 
 id_mapping = {}
@@ -633,11 +650,16 @@ PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
+loc_weight = 1
+color_weight = 0
+p_u = loc_weight * u_loc + color_weight * u_color
+p_u_long = -loc_weight * np.log(ls) - color_weight * np.log(cs)
+
 from scipy.io import savemat
 
 savemat('energy.mat', {'UE': p_u_long.transpose(), 'PE':PE})
 
-mask,labels =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
+mask,labels =  segment(frames, p_u_long, source, target, aff, segs, 0.01,long_paths)
 
 for i in range(len(mask)):
     figure(figsize(21,18))
@@ -663,158 +685,157 @@ for i in range(len(mask)):
 
 
     
-data = []
-lbl = []
-ims = []
-for f in frames: ims.append(img_as_ubyte(imread(f))        )
+# data = []
+# lbl = []
+# ims = []
+# for f in frames: ims.append(img_as_ubyte(imread(f))        )
 
-for (i,id) in enumerate(long_paths.keys()):
-    frame = long_paths[id].frame
-    rows = long_paths[id].rows
-    cols = long_paths[id].cols
+# for (i,id) in enumerate(long_paths.keys()):
+#     frame = long_paths[id].frame
+#     rows = long_paths[id].rows
+#     cols = long_paths[id].cols
     
-    unique_frame = np.unique(frame)
-    mean_rgbs = np.zeros((len(unique_frame),3))
-    for (j,f) in enumerate(unique_frame):
-        im = ims[f]
-        mean_rgbs[j] = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
+#     unique_frame = np.unique(frame)
+#     mean_rgbs = np.zeros((len(unique_frame),3))
+#     for (j,f) in enumerate(unique_frame):
+#         im = ims[f]
+#         mean_rgbs[j] = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
 
-    data.append(mean_rgbs)        
-    if labels[i] == 0:
-        lbl.append(np.zeros(len(unique_frame)))
-    else:
-        lbl.append(np.ones(len(unique_frame)))
+#     data.append(mean_rgbs)        
+#     if labels[i] == 0:
+#         lbl.append(np.zeros(len(unique_frame)))
+#     else:
+#         lbl.append(np.ones(len(unique_frame)))
 
-data = np.vstack(data)
-labels = np.concatenate(lbl)        
+# data = np.vstack(data)
+# labels = np.concatenate(lbl)        
 
-from sklearn.ensemble import RandomForestClassifier
-forest = RandomForestClassifier(20)
-forest.fit(data,labels)
+# from sklearn.ensemble import RandomForestClassifier
+# forest = RandomForestClassifier(20)
+# forest.fit(data,labels)
 
-id_mapping = {}
-id_mapping2 = {}
-for (i,id) in enumerate(paths.keys()):
-    id_mapping[id] = i
-    id_mapping2[i] = id
+# id_mapping = {}
+# id_mapping2 = {}
+# for (i,id) in enumerate(paths.keys()):
+#     id_mapping[id] = i
+#     id_mapping2[i] = id
 
-n_paths = len(paths)    
-flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, paths)
+# n_paths = len(paths)    
+# flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, paths)
 
-_,new_p_u = path_unary2(frames, segs, sp_label, unary, mappings, paths,forest)
+# _,new_p_u = path_unary2(frames, segs, sp_label, unary, mappings, paths,forest)
 
-row_index = []
-col_index = []
-color = []
-edge = []
-flow = []
-overlaps = []
+# row_index = []
+# col_index = []
+# color = []
+# edge = []
+# flow = []
+# overlaps = []
 
-for i in range(n_paths):
-    for a in edge_dists[i].keys():
-        row_index.append(i)
-        col_index.append(a)
-        color.append(color_dists[i][a])
-        edge.append(edge_dists[i][a] / edge_length[i][a])
-        flow.append(flow_dists[i][a])
-        overlaps.append(n_overlap[i][a])
+# for i in range(n_paths):
+#     for a in edge_dists[i].keys():
+#         row_index.append(i)
+#         col_index.append(a)
+#         color.append(color_dists[i][a])
+#         edge.append(edge_dists[i][a] / edge_length[i][a])
+#         flow.append(flow_dists[i][a])
+#         overlaps.append(n_overlap[i][a])
                     
-# sigma_c = 70
-# sigma_flow = 10
-# sigma_edge = 0.3
+# # sigma_c = 70
+# # sigma_flow = 10
+# # sigma_edge = 0.3
 
-# color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
-# flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
-# edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
+# # color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
+# # flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
+# # edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
 
 
-def func(x,lam): return 2*np.exp(-lam*x) - 1
-lam_c = 0.05    
-lam_flow = 0.05    
-lam_edge = 3
+# def func(x,lam): return 2*np.exp(-lam*x) - 1
+# lam_c = 0.05    
+# lam_flow = 0.05    
+# lam_edge = 3
 
-#color[edge > 0.8] = 1e10
-#flow[edge > 0.8] = 1e10
-#edge[edge > 0.8] = 1e10
+# #color[edge > 0.8] = 1e10
+# #flow[edge > 0.8] = 1e10
+# #edge[edge > 0.8] = 1e10
 
-lam_c = 0.00003
-lam_flow = 0.05    
-lam_edge = 2
+# lam_c = 0.00003
+# lam_flow = 0.05    
+# lam_edge = 2
 
-color_affinity = func(np.array(color), lam_c )
-flow_affinity = func(np.array(flow),lam_flow )
-edge_affinity = func(np.array(edge),lam_edge )
-w_e = 0
-w_c = 10
-w_f = 0
-affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
+# color_affinity = func(np.array(color), lam_c )
+# flow_affinity = func(np.array(flow),lam_flow )
+# edge_affinity = func(np.array(edge),lam_edge )
+# w_e = 0
+# w_c = 10
+# w_f = 0
+# affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
-aff_weighted = affinity *np.array(overlaps)
-#affinity *= np.array(overlaps)
+# aff_weighted = affinity *np.array(overlaps)
+# #affinity *= np.array(overlaps)
 
-potts_weight = 1
+# potts_weight = 1
 
-source = []
-target = []
-aff = []
-aff2 = []
+# source = []
+# target = []
+# aff = []
+# aff2 = []
 
-for (r,c,a,a2) in zip(row_index, col_index, affinity, aff_weighted):
-    if r != c:
-        source.append(r)
-        target.append(c)
-        aff.append(a)
-        aff2.append(a2)
+# for (r,c,a,a2) in zip(row_index, col_index, affinity, aff_weighted):
+#     if r != c:
+#         source.append(r)
+#         target.append(c)
+#         aff.append(a)
+#         aff2.append(a2)
 
-aff_dict = []
-aff_dict2 = []
-for i in range(n_paths):
-    aff_dict.append({})
-    aff_dict2.append({})
+# aff_dict = []
+# aff_dict2 = []
+# for i in range(n_paths):
+#     aff_dict.append({})
+#     aff_dict2.append({})
 
-for (s,t,a,a2) in zip(source, target, aff,aff2):
-    aff_dict[s][t] = a   
-    aff_dict2[s][t] = a2   
+# for (s,t,a,a2) in zip(source, target, aff,aff2):
+#     aff_dict[s][t] = a   
+#     aff_dict2[s][t] = a2   
 
-#aff_vis = plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
+# #aff_vis = plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
             
-PE = np.zeros((len(source), 6))
-potts_weight = 1
-PE[:,0] = np.array(target)+1
-PE[:,1] = np.array(source)+1
-PE[:,3] = np.array(aff)* potts_weight
-PE[:,4] = np.array(aff)* potts_weight
+# PE = np.zeros((len(source), 6))
+# potts_weight = 1
+# PE[:,0] = np.array(target)+1
+# PE[:,1] = np.array(source)+1
+# PE[:,3] = np.array(aff)* potts_weight
+# PE[:,4] = np.array(aff)* potts_weight
 
-u = 0 * new_p_u +100* p_u
-savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
+# u = 1 * new_p_u +10* p_u
+# savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
-new_mask, labeling =  segment(frames, u, source, target, aff, segs, 0.01,paths)
+# new_mask, labeling =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
-#new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
+# #new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
-for i in range(len(new_mask)):
-    figure(figsize(21,18))
+# for i in range(len(new_mask)):
+#     figure(figsize(21,18))
 
-    print i
-    im = img_as_ubyte(imread(frames[i]))            
-    subplot(1,4,1)
-    imshow(im)
-    axis("off")
+#     print i
+#     im = img_as_ubyte(imread(frames[i]))            
+#     subplot(1,4,1)
+#     imshow(im)
+#     axis("off")
     
-    subplot(1,4,2)
-    imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
-    axis("off")
+#     subplot(1,4,2)
+#     imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
+#     axis("off")
 
-    subplot(1,4,3)
-    imshow(mask[i],gray())
-    axis("off")
+#     subplot(1,4,3)
+#     imshow(mask[i],gray())
+#     axis("off")
 
-    subplot(1,4,4)
-    imshow(alpha_composite(im, mask_to_rgb(new_mask[i], (0,255,0))),cmap=gray())        
-    axis("off")
+#     subplot(1,4,4)
+#     imshow(alpha_composite(im, mask_to_rgb(new_mask[i], (0,255,0))),cmap=gray())        
+#     axis("off")
         
-    show() 
-
+#     show() 
 
 #################################################################################
         

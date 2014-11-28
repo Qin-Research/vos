@@ -258,11 +258,8 @@ for (i,id) in enumerate(paths.keys()):
         
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn import svm
-
-#forest = RandomForestClassifier(20)
-forest = svm.SVC(probability=True)
-forest.fit(np.array(data),label,weight)
+forest = RandomForestClassifier(20)
+forest.fit(np.array(data),label)
 prob = forest.predict_proba(np.array(colors))
 forest_image = np.zeros(sp_label.shape)
 
@@ -285,54 +282,40 @@ for (i,id) in enumerate(paths.keys()):
     u_forest[i] /= len(unique_frame)
 
 np.save("forest_%s" % name, u_forest)    
-                        
-new_mag = np.sqrt(new_vx ** 2 + new_vy ** 2)
 
-id_mapping = {}
-id_mapping2 = {}
+bins = 20
+color_hist = []
 for (i,id) in enumerate(paths.keys()):
-    id_mapping[id] = i
-    id_mapping2[i] = id
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
 
-n_paths = len(paths)        
-flow_dists, edge_dists, color_dists,edge_length  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges)                         
-row_index = []
-col_index = []
-color = []
-edge = []
-flow = []
+    unique_frame = np.unique(frame)
 
-for i in range(n_paths):
-    row_index.append(i)
-    col_index.append(i)
-    color.append(0)
-    edge.append(0)
-    flow.append(0)
-    for a in edge_dists[i].keys():
-        row_index.append(i)
-        col_index.append(a)
-        color.append(color_dists[i][a])
-        edge.append(edge_dists[i][a] / edge_length[i][a])
-        flow.append(flow_dists[i][a])
+    colors = []
+    for f in unique_frame:
+        r = rows[frame == f]
+        c = cols[frame == f]
+        colors.append(imgs[f][r,c])
 
-sigma_c = 30
-sigma_flow = 10
-sigma_edge = 0.1
+    colors = np.vstack(colors)
+    histo = np.empty(0)
+    for c in range(3):
+        h,bin_edges = np.histogram(colors[:,c], bins=bins, range = (0,256))
+        hi = h / float(np.sum(h))
+        histo = np.concatenate((histo, hi))
+    color_hist.append(histo)
 
-color_affinity = np.exp(-np.array(color) / (2*sigma_c**2))
-flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
-edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
-w_e = 0
-w_c = 10
-w_f = 0
+color_hist = np.array(color_hist)
 
-edge_aff = csr_matrix((edge_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
-color_aff = csr_matrix((color_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
-flow_aff = csr_matrix((flow_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
+from scipy.spatial.distance import pdist,squareform
 
-W = w_e * edge_aff + w_f * flow_aff + w_c * color_aff
-inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
-D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
+dist = squareform(pdist(color_hist))
+
+sigma = 0.5
+W =  np.exp(-dist / (2*sigma**2))                                        
+inv_D =diag(1.0/((W.sum(axis=1)).flatten()))
+D =diag(W.sum(axis=1).flatten())
 lam = 10
 lhs = D + lam * (D - W)
 
@@ -340,8 +323,9 @@ from scipy.sparse import eye
 
 #lhs = eye(n_node) - (inv_D.dot(W))
 
-from scipy.sparse.linalg import spsolve,lsmr
-u_new = spsolve(lhs, D.dot(np.array(u)))
+from scipy.linalg import solve
+
+u_new = solve(lhs, D.dot(np.array(u)))
 np.save('loc_%s.npy' % name, u_new)
 
 # #color_prob = loadmat('/home/masa/research/FastVideoSegment/appearance_%s.mat' % name)['prob']    
