@@ -366,13 +366,13 @@ color_affinity = np.exp(-np.array(color) / (2*sigma_c**2))
 flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
 edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
 
-color_affinity[edge > 0.8] = -1
-flow_affinity[edge > 0.8] = -1
-edge_affinity[edge > 0.8] = -1
+# color_affinity[edge > 0.8] = -1
+# flow_affinity[edge > 0.8] = -1
+# edge_affinity[edge > 0.8] = -1
 
-w_e = 1
-w_c = 5
-w_f = 1
+w_e = 0
+w_c = 10
+w_f = 0
 #w_m = 1
 #w_a = 1
 edge_index = np.hstack((np.array(row_index)[:,np.newaxis], np.array(col_index)[:,np.newaxis]))                
@@ -384,14 +384,14 @@ flow_aff = csr_matrix((flow_affinity, (row_index, col_index)), shape=(n_paths, n
 affinity = w_e * edge_aff + w_f * flow_aff + w_c * color_aff
 
 paths_per_cluster = 5
-n_clusters = n_paths / paths_per_cluster
+n_clusters = 20
 import time
 t = time.time()
 cluster_labels = spectral_clustering(affinity, n_clusters=n_clusters, eigen_solver='arpack')
 print time.time() - t
 #plot_value(paths, sp_label, cluster_labels,jet())
 
-good_cluster,bad_cluster = cluster_check(long_paths, cluster_labels,labels)
+#good_cluster,bad_cluster = cluster_check(long_paths, cluster_labels,labels)
 # import shelve
 # shelf = shelve.open('%s_cluster.shelve' %name,'n')
 # shelf['cluster_labels'] = cluster_labels

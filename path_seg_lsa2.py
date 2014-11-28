@@ -512,7 +512,7 @@ def plot_affinities(frames, affs):
         show()
 
         
-name = 'hummingbird'
+name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -745,8 +745,8 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 w_e = 0
-w_c = 0
-w_f = 10
+w_c = 10
+w_f = 0
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
 aff_weighted = affinity *np.array(overlaps)

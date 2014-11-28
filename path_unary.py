@@ -162,6 +162,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
     #     edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
     # return adj, edge_strength 
                        
+#name = 'hummingbird'
 name = 'bmx'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -186,7 +187,7 @@ edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 from cPickle import load
 with open('paths_%s.pickle' % name) as f:
     paths = load(f)
-bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
+
 
 
 segs = loadmat('sp_%s2.mat'%name)['superpixels'].astype(np.int)
@@ -196,7 +197,19 @@ for i in range(segs.shape[2]):
 segs = s    
 
 inratios = loadmat('/home/masa/research/FastVideoSegment/inratios_%s.mat' % name)['inRatios']    
+
+bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
+bmaps = bmaps > 0.2
+
+new_vx = np.zeros(vx.shape)
+new_vy = np.zeros(vy.shape)
 u = np.zeros(len(paths))
+inratio_image = np.zeros(sp_label.shape)
+
+data = []
+label = []
+weight = []
+colors = []
 for (i,id) in enumerate(paths.keys()):
     frame = paths[id].frame
     rows = paths[id].rows
@@ -205,13 +218,67 @@ for (i,id) in enumerate(paths.keys()):
     unique_frame = np.unique(frame)
 
     values = []
+    new_vx[rows, cols, frame] = np.mean(vx[rows, cols,frame])
+    new_vy[rows, cols, frame] = np.mean(vy[rows, cols,frame])
+
+    colors2 = []
+    ratios = []
     for f in unique_frame:
         r = rows[frame == f]
         c = cols[frame == f]
         values.append(inratios[f][0][segs[f][r[0],c[0]]][0])
+        ratio =  inratios[f][0][segs[f][r[0],c[0]]][0]
+        inratio_image[r,c,f] = ratio
+
+        color = np.mean(imgs[f][r,c],axis=0)
+        colors.append(color)
+        colors2.append(color)
+        ratios.append(ratio)
+        # if ratio == 0:
+        #     data.append(color)                    
+        #     label.append(1)
+        #     weight.append(1)
+        # elif ratio > 0.2:
+        #     data.append(color)                    
+        #     label.append(0)
+        #     weight.append(ratio)
+#        values.append(np.sum(bmaps[r,c,f]))
 
     u[i] = np.mean(values)
-    
+    if u[i] == 0:
+        for c in colors2:
+            data.append(c)
+            label.append(1)
+            weight.append(1)
+    elif u[i] > 0.2:
+        for c in colors2:
+            data.append(c)
+            label.append(0)
+            weight.append(u[i])
+        
+
+from sklearn.ensemble import RandomForestClassifier
+forest = RandomForestClassifier(20)
+forest.fit(np.array(data),label)
+prob = forest.predict_proba(np.array(colors))
+forest_image = np.zeros(sp_label.shape)
+count = 0
+for (i,id) in enumerate(paths.keys()):
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
+
+    unique_frame = np.unique(frame)
+
+    for f in unique_frame:
+        r = rows[frame == f]
+        c = cols[frame == f]
+        forest_image[r,c,f] = prob[count,0]
+        count+=1
+
+                
+new_mag = np.sqrt(new_vx ** 2 + new_vy ** 2)
+
 id_mapping = {}
 id_mapping2 = {}
 for (i,id) in enumerate(paths.keys()):
@@ -266,25 +333,25 @@ from scipy.sparse import eye
 
 from scipy.sparse.linalg import spsolve,lsmr
 u_new = spsolve(lhs, D.dot(np.array(u)))
-np.save('loc_%s.npy' % name, u_new)
+# np.save('loc_%s.npy' % name, u_new)
 
-color_prob = loadmat('/home/masa/research/FastVideoSegment/appearance_%s.mat' % name)['prob']    
+# #color_prob = loadmat('/home/masa/research/FastVideoSegment/appearance_%s.mat' % name)['prob']    
 
-color_u = np.zeros((len(paths),2))
+# color_u = np.zeros((len(paths),2))
 
-count = 0
+# count = 0
 
-prob_image1 = np.zeros(sp_label.shape)
-prob_image2 = np.zeros(sp_label.shape)
-from skimage.filter import vsobel,hsobel
-val = plot_value(paths, sp_label, u_new, jet())
+# prob_image1 = np.zeros(sp_label.shape)
+# prob_image2 = np.zeros(sp_label.shape)
+# from skimage.filter import vsobel,hsobel
+# val = plot_value(paths, sp_label, u_new, jet())
 
-for i in range(val.shape[2]):
-    grad_v = vsobel(val[:,:,i])
-    grad_h = hsobel(val[:,:,i])
+# for i in range(val.shape[2]):
+#     grad_v = vsobel(val[:,:,i])
+#     grad_h = hsobel(val[:,:,i])
 
-    imshow(np.sqrt(grad_v ** 2 + grad_h ** 2))
-    show()
+#     imshow(np.sqrt(grad_v ** 2 + grad_h ** 2))
+#     show()
 
 # for i in range(sp_label.shape[2]):
     

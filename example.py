@@ -23,7 +23,7 @@ from video_util import *
 # detector = contour.MultiScaleStructuredForest()
 # detector.load( "sf.dat" )
 name = 'girl'
-#name = 'hummingbird'
+name = 'hummingbird'
 def get_dominant_motion(motion):
     hist,bins = np.histogram(motion.flatten(), bins=500)
     return bins[np.argmax(hist)]
@@ -42,7 +42,7 @@ r,c,n = sp_label.shape
 
 
 
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+#edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 
 
 # img = np.zeros((r,c,3))
@@ -61,23 +61,23 @@ for i in range(len(frames)):
     print i
 
     figure(figsize(15,12))
-    mag_contrast = np.zeros(mag.shape[:2])
-    angle_contrast = np.zeros(mag.shape[:2])
-#    uni = np.unique(segs[i])
-    dominant_angle = get_dominant_angle(angle[:,:,i])
-#    dominant_motion = get_dominant_motion(mag[:,:,i])
+#     mag_contrast = np.zeros(mag.shape[:2])
+#     angle_contrast = np.zeros(mag.shape[:2])
+# #    uni = np.unique(segs[i])
+#     dominant_angle = get_dominant_angle(angle[:,:,i])
+# #    dominant_motion = get_dominant_motion(mag[:,:,i])
 
-    e = edges[:,:,i].copy()
-    mask = np.abs(angle[:,:,i] - dominant_angle) < 20
-#    mask = mag[:,:,i] < 0.1
-    e[mask] = 0
+#     e = edges[:,:,i].copy()
+#     mask = np.abs(angle[:,:,i] - dominant_angle) < 20
+# #    mask = mag[:,:,i] < 0.1
+#     e[mask] = 0
 
-    subplot(1,2,1)
-    imshow(edges[:,:,i],gray())
+#     subplot(1,2,1)
+#     imshow(edges[:,:,i],gray())
 
-    subplot(1,2,2)
-    imshow(e)
-    show()
+#     subplot(1,2,2)
+#     imshow(e)
+#     show()
     
 #     # for u in uni:
 #     #     rs, cs = np.nonzero(segs[i] == u)
@@ -85,17 +85,20 @@ for i in range(len(frames)):
 #     #     angle_contrast[rs,cs] = np.mean(np.abs(angle[rs,cs,i]  - dominant_angle))     
 
 #     print i    
-#     u = vx[:,:,i]
-#     v = vy[:,:,i]
+    u = vx[:,:,i]
+    v = vy[:,:,i]
 
-#     u_x = hsobel(u)
-#     u_y = vsobel(u)
-#     v_x = hsobel(v)
-#     v_y = vsobel(v)
+    u_x = hsobel(u)
+    u_y = vsobel(u)
+    v_x = hsobel(v)
+    v_y = vsobel(v)
 
 #     u_a = hsobel(angle[:,:,i])
 #     v_a = vsobel(angle[:,:,i])
-#     grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
+    grad_mag = np.sqrt(u_x**2 + u_y** 2 + v_x**2 + v_y**2)
+
+    imshow(grad_mag)
+    show()
 #     grad_angle = np.sqrt(u_a**2 + v_a** 2)
 # #    grad_mag = (-np.min(grad_mag) + grad_mag) / (np.max(grad_mag) - np.min(grad_mag))
 # #    color_edge = (-np.min(edges[:,:,i]) + edges[:,:,i]) / (np.max(edges[:,:,i]) - np.min(edges[:,:,i]))
