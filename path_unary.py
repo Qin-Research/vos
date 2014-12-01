@@ -5,7 +5,7 @@ from sys import argv
 from time import time
 import os
 from skimage import img_as_ubyte
-from scipy.io import loadmat
+from scipy.io import loadmat,savemat
 from sklearn.preprocessing import scale
 from sklearn.cluster import spectral_clustering
 from skimage.color import rgb2gray,rgb2lab
@@ -162,8 +162,9 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
     #     edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
     # return adj, edge_strength 
                        
-name = 'hummingbird'
+#name = 'hummingbird'
 #name = 'bmx'
+name = 'soldier'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -182,14 +183,14 @@ sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 from skimage.filter import vsobel,hsobel
 
 #
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+#edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
     
 from cPickle import load
 with open('paths_%s.pickle' % name) as f:
     paths = load(f)
 
 
-
+#segs,adjs, mapping = get_tsp2(sp_label)
 segs = loadmat('sp_%s2.mat'%name)['superpixels'].astype(np.int)
 s = []
 for i in range(segs.shape[2]):
@@ -198,18 +199,129 @@ segs = s
 
 inratios = loadmat('/home/masa/research/FastVideoSegment/inratios_%s.mat' % name)['inRatios']    
 
-bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
-bmaps = bmaps > 0.2
+init_ratio = []
+id2index = []
+index = 0
+for i in range(len(inratios)):
+    id2index.append({})
+    for (jj,j) in enumerate(inratios[i][0]):
+        init_ratio.append(j[0])
+        id2index[i][jj] = index
+        index += 1
 
-new_vx = np.zeros(vx.shape)
-new_vy = np.zeros(vy.shape)
+dist = []
+row_index = []
+col_index = []
+rgbs = np.zeros((len(init_ratio),3))
+n_frames = len(frames)        
+for (i,id) in enumerate(paths.keys()):
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
+
+    unique_frame = np.unique(frame)
+
+    for f in unique_frame:
+
+        if f == n_frames-1: continue
+        r1 = rows[frame == f]
+        c1 = cols[frame == f]
+        index1 = id2index[f][segs[f][r1[0],c1[0]]]
+        
+        rgb1 = np.mean(imgs[f][r1,c1],axis=0)
+        rgbs[index1] = rgb1
+        for f2 in unique_frame:
+            if f >= f2: continue
+            if f2 == n_frames-1: continue            
+            r2 = rows[frame == f2]
+            c2 = cols[frame == f2]
+            rgb2 = np.mean(imgs[f2][r2,c2],axis=0)
+            
+            index2 = id2index[f2][segs[f2][r2[0],c2[0]]]
+            rgbs[index2] = rgb2
+            
+            d = np.linalg.norm(rgb1-rgb2) **2
+
+            row_index.append(index1)
+            row_index.append(index2)
+            col_index.append(index2)
+            col_index.append(index1)
+
+            dist.append(d)
+            dist.append(d)
+
+adjs = []            
+for f in range(len(segs)-1):
+    adjs.append(get_sp_adj(segs[f]))
+    
+for i in range(n_frames-1):
+    for j in range(adjs[i].shape[0]):
+        index1 = id2index[i][j]
+        rgb1 = rgbs[index1]
+
+        row_index.append(index1)
+        col_index.append(index1)
+        dist.append(0)
+        
+        for k in np.nonzero(adjs[i][j])[0]:
+
+            if j > k: continue
+            index2 = id2index[i][k]
+            rgb2 = rgbs[index2]
+            
+            d = np.linalg.norm(rgb1-rgb2) **2
+
+            row_index.append(index1)
+            row_index.append(index2)
+            col_index.append(index2)
+            col_index.append(index1)
+
+            dist.append(d)
+            dist.append(d)
+
+sigma = 30 
+#sigma2 = 1000
+values2 = np.exp(-np.array(dist) / (2*sigma**2))
+
+from scipy.sparse import csr_matrix, spdiags
+n_node = len(init_ratio)
+W = csr_matrix((values2, (row_index, col_index)), shape=(n_node, n_node))
+
+inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
+D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
+lam = 10
+lhs = D + lam * (D - W)
+from scipy.sparse import eye
+
+#lhs = eye(n_node) - (inv_D.dot(W))
+
+from scipy.sparse.linalg import spsolve,lsmr
+diffused_ratio = spsolve(lhs, D.dot(np.array(init_ratio)))
+
+diffused_ratios = []
+
+count = 0
+for i in range(len(inratios)):
+    diffused_ratios.append(diffused_ratio[count:len(inratios[i][0])+count])
+    count += len(inratios[i][0])
+        
+savemat('diffused_%s.mat' % name, {'diffused_inratio':diffused_ratios})                        
+# bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
+# bmaps = bmaps > 0.2
+
+# new_vx = np.zeros(vx.shape)
+# new_vy = np.zeros(vy.shape)
+# 
+# 
+
+# data = []
+# label = []
+# weight = []
+# colors = []
 u = np.zeros(len(paths))
 inratio_image = np.zeros(sp_label.shape)
+diffused_image = np.zeros(sp_label.shape)
 
-data = []
-label = []
-weight = []
-colors = []
 for (i,id) in enumerate(paths.keys()):
     frame = paths[id].frame
     rows = paths[id].rows
@@ -218,131 +330,146 @@ for (i,id) in enumerate(paths.keys()):
     unique_frame = np.unique(frame)
 
     values = []
-    new_vx[rows, cols, frame] = np.mean(vx[rows, cols,frame])
-    new_vy[rows, cols, frame] = np.mean(vy[rows, cols,frame])
+    # new_vx[rows, cols, frame] = np.mean(vx[rows, cols,frame])
+    # new_vy[rows, cols, frame] = np.mean(vy[rows, cols,frame])
 
-    colors2 = []
-    ratios = []
+    # colors2 = []
+    # ratios = []
     for f in unique_frame:
         r = rows[frame == f]
         c = cols[frame == f]
         values.append(inratios[f][0][segs[f][r[0],c[0]]][0])
         ratio =  inratios[f][0][segs[f][r[0],c[0]]][0]
         inratio_image[r,c,f] = ratio
+        diffused_image[r,c,f] = diffused_ratio[id2index[f][segs[f][r[0],c[0]]]]
 
-        color = np.mean(imgs[f][r,c],axis=0)
-        colors.append(color)
-        colors2.append(color)
-        ratios.append(ratio)
-        # if ratio == 0:
-        #     data.append(color)                    
-        #     label.append(1)
-        #     weight.append(1)
-        # elif ratio > 0.2:
-        #     data.append(color)                    
-        #     label.append(0)
-        #     weight.append(ratio)
-#        values.append(np.sum(bmaps[r,c,f]))
+#         color = np.mean(imgs[f][r,c],axis=0)
+#         colors.append(color)
+#         colors2.append(color)
+#         ratios.append(ratio)
+#         # if ratio == 0:
+#         #     data.append(color)                    
+#         #     label.append(1)
+#         #     weight.append(1)
+#         # elif ratio > 0.2:
+#         #     data.append(color)                    
+#         #     label.append(0)
+#         #     weight.append(ratio)
+# #        values.append(np.sum(bmaps[r,c,f]))
 
     u[i] = np.mean(values)
-    if u[i] == 0:
-        for c in colors2:
-            data.append(c)
-            label.append(1)
-            weight.append(1)
-    elif u[i] > 0.2:
-        for c in colors2:
-            data.append(c)
-            label.append(0)
-            weight.append(u[i])
+#     if u[i] == 0:
+#         for c in colors2:
+#             data.append(c)
+#             label.append(1)
+#             weight.append(1)
+#     elif u[i] > 0.2:
+#         for c in colors2:
+#             data.append(c)
+#             label.append(0)
+#             weight.append(u[i])
         
+val = plot_value(paths, sp_label, u, jet())
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn import svm
+for i in range(val.shape[2]):
+    figure(figsize(21,18))
+    subplot(1,4,1)
+    imshow(inratio_image[:,:,i])
+    subplot(1,4,2)
+    imshow(val[:,:,i])
+    subplot(1,4,3)
+    imshow(diffused_image[:,:,i])
+    subplot(1,4,4)
+    imshow(diffused_image[:,:,i] + inratio_image[:,:,i])    
+    show()
 
-#forest = RandomForestClassifier(20)
-forest = svm.SVC(probability=True)
-forest.fit(np.array(data),label,weight)
-prob = forest.predict_proba(np.array(colors))
-forest_image = np.zeros(sp_label.shape)
+#loc2 = loadmat('/home/masa/research/FastVideoSegment/loc.mat')['loc']                                
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn import svm
 
-count = 0
-u_forest = np.zeros((len(paths), 2))
-for (i,id) in enumerate(paths.keys()):
-    frame = paths[id].frame
-    rows = paths[id].rows
-    cols = paths[id].cols
+# #forest = RandomForestClassifier(20)
+# forest = svm.SVC(probability=True)
+# forest.fit(np.array(data),label,weight)
+# prob = forest.predict_proba(np.array(colors))
+# forest_image = np.zeros(sp_label.shape)
 
-    unique_frame = np.unique(frame)
+# count = 0
+# u_forest = np.zeros((len(paths), 2))
+# for (i,id) in enumerate(paths.keys()):
+#     frame = paths[id].frame
+#     rows = paths[id].rows
+#     cols = paths[id].cols
 
-    for f in unique_frame:
-        r = rows[frame == f]
-        c = cols[frame == f]
-        forest_image[r,c,f] = prob[count,0]
-        u_forest[i] += prob[count]
-        count+=1
+#     unique_frame = np.unique(frame)
 
-    u_forest[i] /= len(unique_frame)
+#     for f in unique_frame:
+#         r = rows[frame == f]
+#         c = cols[frame == f]
+#         forest_image[r,c,f] = prob[count,0]
+#         u_forest[i] += prob[count]
+#         count+=1
 
-np.save("forest_%s" % name, u_forest)    
+#     u_forest[i] /= len(unique_frame)
+
+# np.save("forest_%s" % name, u_forest)    
                         
-new_mag = np.sqrt(new_vx ** 2 + new_vy ** 2)
+# new_mag = np.sqrt(new_vx ** 2 + new_vy ** 2)
 
-id_mapping = {}
-id_mapping2 = {}
-for (i,id) in enumerate(paths.keys()):
-    id_mapping[id] = i
-    id_mapping2[i] = id
+# id_mapping = {}
+# id_mapping2 = {}
+# for (i,id) in enumerate(paths.keys()):
+#     id_mapping[id] = i
+#     id_mapping2[i] = id
 
-n_paths = len(paths)        
-flow_dists, edge_dists, color_dists,edge_length  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges)                         
-row_index = []
-col_index = []
-color = []
-edge = []
-flow = []
+# n_paths = len(paths)        
+# flow_dists, edge_dists, color_dists,edge_length  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges)                         
+# row_index = []
+# col_index = []
+# color = []
+# edge = []
+# flow = []
 
-for i in range(n_paths):
-    row_index.append(i)
-    col_index.append(i)
-    color.append(0)
-    edge.append(0)
-    flow.append(0)
-    for a in edge_dists[i].keys():
-        row_index.append(i)
-        col_index.append(a)
-        color.append(color_dists[i][a])
-        edge.append(edge_dists[i][a] / edge_length[i][a])
-        flow.append(flow_dists[i][a])
+# for i in range(n_paths):
+#     row_index.append(i)
+#     col_index.append(i)
+#     color.append(0)
+#     edge.append(0)
+#     flow.append(0)
+#     for a in edge_dists[i].keys():
+#         row_index.append(i)
+#         col_index.append(a)
+#         color.append(color_dists[i][a])
+#         edge.append(edge_dists[i][a] / edge_length[i][a])
+#         flow.append(flow_dists[i][a])
 
-sigma_c = 30
-sigma_flow = 10
-sigma_edge = 0.1
+# sigma_c = 30
+# sigma_flow = 10
+# sigma_edge = 0.1
 
-color_affinity = np.exp(-np.array(color) / (2*sigma_c**2))
-flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
-edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
-w_e = 0
-w_c = 10
-w_f = 0
+# color_affinity = np.exp(-np.array(color) / (2*sigma_c**2))
+# flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
+# edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
+# w_e = 0
+# w_c = 10
+# w_f = 0
 
-edge_aff = csr_matrix((edge_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
-color_aff = csr_matrix((color_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
-flow_aff = csr_matrix((flow_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
+# edge_aff = csr_matrix((edge_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
+# color_aff = csr_matrix((color_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
+# flow_aff = csr_matrix((flow_affinity, (row_index, col_index)), shape=(n_paths, n_paths))
 
-W = w_e * edge_aff + w_f * flow_aff + w_c * color_aff
-inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
-D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
-lam = 10
-lhs = D + lam * (D - W)
+# W = w_e * edge_aff + w_f * flow_aff + w_c * color_aff
+# inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
+# D =spdiags(W.sum(axis=1).flatten(), 0, W.shape[0], W.shape[1])
+# lam = 10
+# lhs = D + lam * (D - W)
 
-from scipy.sparse import eye
+# from scipy.sparse import eye
 
-#lhs = eye(n_node) - (inv_D.dot(W))
+# #lhs = eye(n_node) - (inv_D.dot(W))
 
-from scipy.sparse.linalg import spsolve,lsmr
-u_new = spsolve(lhs, D.dot(np.array(u)))
-np.save('loc_%s.npy' % name, u_new)
+# from scipy.sparse.linalg import spsolve,lsmr
+# u_new = spsolve(lhs, D.dot(np.array(u)))
+# np.save('loc_%s.npy' % name, u_new)
 
 # #color_prob = loadmat('/home/masa/research/FastVideoSegment/appearance_%s.mat' % name)['prob']    
 
