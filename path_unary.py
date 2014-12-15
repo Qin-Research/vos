@@ -162,9 +162,9 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
     #     edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
     # return adj, edge_strength 
                        
-#name = 'hummingbird'
+name = 'hummingbird'
 #name = 'bmx'
-name = 'soldier'
+#name = 'soldier'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -306,7 +306,7 @@ for i in range(len(inratios)):
     count += len(inratios[i][0])
         
 savemat('diffused_%s.mat' % name, {'diffused_inratio':diffused_ratios})                        
-# bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
+bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
 # bmaps = bmaps > 0.2
 
 # new_vx = np.zeros(vx.shape)
@@ -373,14 +373,12 @@ val = plot_value(paths, sp_label, u, jet())
 
 for i in range(val.shape[2]):
     figure(figsize(21,18))
-    subplot(1,4,1)
+    subplot(1,3,1)
     imshow(inratio_image[:,:,i])
-    subplot(1,4,2)
+    subplot(1,3,2)
     imshow(val[:,:,i])
-    subplot(1,4,3)
+    subplot(1,3,3)
     imshow(diffused_image[:,:,i])
-    subplot(1,4,4)
-    imshow(diffused_image[:,:,i] + inratio_image[:,:,i])    
     show()
 
 #loc2 = loadmat('/home/masa/research/FastVideoSegment/loc.mat')['loc']                                
