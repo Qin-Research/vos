@@ -162,8 +162,8 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
     #     edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
     # return adj, edge_strength 
                        
-name = 'hummingbird'
-#name = 'bmx'
+#name = 'hummingbird'
+name = 'bmx'
 #name = 'soldier'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
@@ -381,6 +381,18 @@ for i in range(val.shape[2]):
     imshow(diffused_image[:,:,i])
     show()
 
+for i in range(diffused_image.shape[2]):
+    hist, bin_edges = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
+    subplot(1,3,1)
+    imshow(diffused_image[:,:,i])
+    subplot(1,3,2)
+    imshow(diffused_image[:,:,i] > bin_edges[1])
+    subplot(1,3,3)
+    imshow(diffused_image[:,:,i] > bin_edges[5])
+    
+    show()
+
+save("diffused_image_%s.npy" % name, diffused_image)    
 #loc2 = loadmat('/home/masa/research/FastVideoSegment/loc.mat')['loc']                                
 # from sklearn.ensemble import RandomForestClassifier
 # from sklearn import svm

@@ -538,6 +538,53 @@ from cPickle import load
 with open('paths_%s.pickle' % name) as f:
     paths = load(f)
 
+diffused_image = load("diffused_image_%s.npy" % name)
+data = []
+all_data = []
+lbl = []
+ims = []
+for f in frames: ims.append(img_as_ubyte(imread(f))        )
+
+bin_edges = []    
+for i in range(diffused_image.shape[2]):
+    hist, bin_edge = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
+    bin_edges.append(bin_edge)
+    
+for (i,id) in enumerate(paths.keys()):
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
+    
+    unique_frame = np.unique(frame)
+
+    for (j,f) in enumerate(unique_frame):
+        im = ims[f]
+        mean_rgb = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
+
+        all_data.append(mean_rgb)
+        inratio = diffused_image[rows[frame == f][0], cols[frame == f][0], f]
+        if inratio > bin_edges[f][5]:
+            data.append(mean_rgb)
+            lbl.append(0)
+        elif inratio < bin_edges[f][1]:
+            data.append(mean_rgb)
+            lbl.append(1)
+    
+data = np.vstack(data)
+labels = np.array(lbl)        
+
+from sklearn.ensemble import RandomForestClassifier
+forest = RandomForestClassifier(20)
+forest.fit(data,labels)
+
+
+# for i in range(diffused_image.shape[2]):
+#     hist, bin_edges = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
+#     imshow(diffused_image[:,:,i] > bin_edges[1])
+#     imshow(diffused_image[:,:,i] > bin_edges[5])
+    
+#     show()
+
 # loc_prob = np.load('locprior_%s.npy' % name)[:,np.newaxis]
 # loc_prob /= np.max(loc_prob)
 # loc_prob = np.hstack((loc_prob, 1-loc_prob)) + 1e-10
@@ -598,7 +645,6 @@ for i in range(n_paths):
         flow.append(flow_dists[i][a])
         overlaps.append(n_overlap[i][a])
 
-                    
 # sigma_c = 70
 # sigma_flow = 10
 # sigma_edge = 0.3
@@ -625,20 +671,20 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 edge_affinity = func(np.array(edge),lam_edge )
 
-w_e = 5
+w_e = 2
 w_c = 0
-w_f = 0
+w_f = 1
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 aff_weighted = affinity * np.array(overlaps)
 #affinity *= np.array(overlaps)
 
-potts_weight = 10
+potts_weight = 50
 
 source = []
 target = []
 aff = []
-for (r,c,a) in zip(row_index, col_index, aff_weighted):
-#for (r,c,a) in zip(row_index, col_index, affinity):
+#for (r,c,a) in zip(row_index, col_index, aff_weighted):
+for (r,c,a) in zip(row_index, col_index, affinity):
     if r != c:
         source.append(r)
         target.append(c)
@@ -684,8 +730,6 @@ for i in range(len(mask)):
 
 
 #############################################################################################
-
-
     
 data = []
 lbl = []
@@ -773,7 +817,7 @@ w_c = 0
 w_f = 1
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
-aff_weighted = affinity *np.array(overlaps)*0.5
+aff_weighted = affinity *np.array(overlaps)*0.2
 #affinity *= np.array(overlaps)
 
 potts_weight = 1
@@ -803,17 +847,17 @@ for (s,t,a,a2) in zip(source, target, aff,aff2):
 #aff_vis = plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
             
 PE = np.zeros((len(source), 6))
-potts_weight = 15
+potts_weight = 10
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
-PE[:,3] = np.array(aff2)* potts_weight
-PE[:,4] = np.array(aff2)* potts_weight
+PE[:,3] = np.array(aff)* potts_weight
+PE[:,4] = np.array(aff)* potts_weight
 
 p_u = path_unary(frames, segs, sp_label, unary, mappings, paths)
 u = 1 * new_p_u +1* p_u
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
-new_mask, labeling =  segment(frames, u, source, target, aff, segs, 0.01,paths)
+new_mask, labeling = segment(frames, u, source, target, aff, segs, 0.01,paths)
 
 #new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
