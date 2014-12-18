@@ -83,7 +83,7 @@ def plot_cluster(frames, paths, sp_label, cluster_label, n):
     
         show()
         
-def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
+def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths):
 #    adj = np.zeros((n_paths, n_paths), np.bool)
     row_index = []
     col_index = []
@@ -94,6 +94,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
     n_frames = sp_label.shape[2]
 
     edge_dists = []
+    flow_edge_dists = []
     color_dists = []
     flow_dists = []
     edge_len = []
@@ -102,6 +103,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
     from collections import defaultdict
     for i in range(n_paths):
         edge_dists.append(defaultdict(float))
+        flow_edge_dists.append(defaultdict(float))
         color_dists.append(defaultdict(float))
         flow_dists.append(defaultdict(float))
         edge_len.append(defaultdict(int))
@@ -109,6 +111,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
         
     for k in range(n_frames):
         edge_dists_buf = []
+        flow_edge_dists_buf = []
         color_dists_buf = []
         flow_dists_buf = []
         edge_length = []
@@ -116,6 +119,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
     
         for i in range(n_paths):
             edge_dists_buf.append(defaultdict(float))
+            flow_edge_dists_buf.append(defaultdict(float))
             color_dists_buf.append(defaultdict(float))
             flow_dists_buf.append(defaultdict(float))
             edge_length.append(defaultdict(int))
@@ -126,6 +130,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
            for j in range(sp_label.shape[1]):
                l = sp_label[i,j,k]
                e = edges[i,j,k]
+               flow_e = flow_edges[i,j,k]
                if not mapping.has_key(l):continue
                                             
                index = mapping[l]
@@ -135,6 +140,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
 
                        if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i-1,j,k] + e
+                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e
                        edge_length[index][mapping[ll]] += 1
                        if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                       
                        adj_list[index].add(mapping[ll])
@@ -153,6 +159,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
                    if l != ll:
                        if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i+1,j,k] + e
+                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e                       
                        edge_length[index][mapping[ll]] += 1
                        if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
                        adj_list[index].add(mapping[ll])
@@ -171,6 +178,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
                    if l != ll:
                        if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i,j-1,k] + e
+                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e                       
                        edge_length[index][mapping[ll]] += 1
                        if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
                        adj_list[index].add(mapping[ll])
@@ -188,6 +196,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
                    if l != ll:
                        if not mapping.has_key(ll):continue                       
                        edge_dists_buf[index][mapping[ll]] += edges[i,j+1,k] + e
+                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e                       
                        edge_length[index][mapping[ll]] += 1
                        if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
                        adj_list[index].add(mapping[ll])
@@ -209,6 +218,9 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
 
                 if edge_dists[i][a] <= edge_dists_buf[i][a]:
                     edge_dists[i][a] =edge_dists_buf[i][a]
+                if flow_edge_dists[i][a] <= flow_edge_dists_buf[i][a]:
+                    flow_edge_dists[i][a] =flow_edge_dists_buf[i][a]
+                    
                     edge_len[i][a] = edge_length[i][a]
 
                 # flow_dists[i][a] += flow_dists_buf[i][a]
@@ -222,18 +234,50 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, paths):
                    #     col_index.append(mapping[ll])
 
                    #     count.append(1)
-    return flow_dists, edge_dists, color_dists, edge_len, n_overlap
+    return flow_dists, edge_dists, flow_edge_dists, color_dists, edge_len, n_overlap
                        
-def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
+def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest):
     n_paths = len(paths)
-    unary = np.zeros((n_paths, 2))
+
     n_frames = len(frames)-1
 
     id_mapping = {}
     for (i,id) in enumerate(paths.keys()):
         id_mapping[id] = i
 
+    
+    mapping = {}
     count = 0
+    ims = []
+    for i in range(len(segs)):
+        im = img_as_ubyte(imread(frames[i]))
+        ims.append(im)
+        uni = np.unique(segs[i])
+        for j in uni:
+            mapping[(i,j)] = count
+            count += 1
+        
+    count = 0
+    rgb_data = np.zeros((sp_unary.shape[0],3))
+
+    for (i,id) in enumerate(paths.keys()):
+        frame = paths[id].frame
+        rows = paths[id].rows
+        cols = paths[id].cols
+    
+        unique_frame = np.unique(frame)
+    
+        values = []
+        for f in unique_frame:
+            index = mapping[(f,segs[f][rows[0], cols[0]])]
+
+            rgb_data[index] = np.mean(ims[f][rows[frame == f],cols[frame == f]], axis=0)
+            
+    prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)            
+        
+    count = 0
+    unary = np.zeros((n_paths, 2))    
+    unary_forest = np.zeros((n_paths, 2))    
     for i in range(n_frames):
         uni = np.unique(segs[i])
 
@@ -251,13 +295,16 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths):
 #           unary[p_id][1] = max(unary[p_id][1], u_bg)
             unary[p_id][0] += u_fg
             unary[p_id][1] += u_bg
+            unary_forest[p_id][0] += prob[count][0]
+            unary_forest[p_id][1] += prob[count][1]
 
             count += 1
             
     for (i,id) in enumerate(paths.keys()):
         unary[i] /= paths[id].n_frames
+        unary_forest[i] /= paths[id].n_frames
 
-    return unary
+    return unary, unary_forest
 
 def plot_job(path1, path2, v, r,c,n_frame):
     
@@ -370,52 +417,52 @@ def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
                                        
     return aff
           
-def path_unary2(frames, segs, sp_label, sp_unary, mappings, paths,forest):
-    n_paths = len(paths)
-    unary = np.zeros((n_paths, 2))
-    new_unary = np.zeros((n_paths, 2))
-    n_frames = len(frames)-1
+# def path_unary2(frames, segs, sp_label, sp_unary, mappings, paths,forest):
+#     n_paths = len(paths)
+#     unary = np.zeros((n_paths, 2))
+#     new_unary = np.zeros((n_paths, 2))
+#     n_frames = len(frames)-1
 
-    id_mapping = {}
-    for (i,id) in enumerate(paths.keys()):
-        id_mapping[id] = i
+#     id_mapping = {}
+#     for (i,id) in enumerate(paths.keys()):
+#         id_mapping[id] = i
 
-    count = 0
-    rgb_data = np.zeros((sp_unary.shape[0],3))
-    for i in range(n_frames):
-        uni = np.unique(segs[i])
+#     count = 0
+#     rgb_data = np.zeros((sp_unary.shape[0],3))
+#     for i in range(n_frames):
+#         uni = np.unique(segs[i])
 
-        im = img_as_ubyte(imread(frames[i]))
-        for u in uni:
-            rgb_data[count] = np.mean(im[segs[i] == u],axis=0)
-            count += 1
+#         im = img_as_ubyte(imread(frames[i]))
+#         for u in uni:
+#             rgb_data[count] = np.mean(im[segs[i] == u],axis=0)
+#             count += 1
             
-    prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)            
-    count = 0            
-    for i in range(n_frames):
-        uni = np.unique(segs[i])
+#     prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)            
+#     count = 0            
+#     for i in range(n_frames):
+#         uni = np.unique(segs[i])
 
-        im = img_as_ubyte(imread(frames[i]))
-        for u in uni:
+#         im = img_as_ubyte(imread(frames[i]))
+#         for u in uni:
             
-            orig_id = mappings[i][:u]
+#             orig_id = mappings[i][:u]
 
-            p_id = id_mapping[orig_id]
-            u_fg = sp_unary[count][0]
-            u_bg = sp_unary[count][1]
+#             p_id = id_mapping[orig_id]
+#             u_fg = sp_unary[count][0]
+#             u_bg = sp_unary[count][1]
 
-#           unary[p_id][0] = max(unary[p_id][0], u_fg)
-#           unary[p_id][1] = max(unary[p_id][1], u_bg)
-            unary[p_id][0] += u_fg
-            unary[p_id][1] += u_bg
+# #           unary[p_id][0] = max(unary[p_id][0], u_fg)
+# #           unary[p_id][1] = max(unary[p_id][1], u_bg)
+#             unary[p_id][0] += u_fg
+#             unary[p_id][1] += u_bg
 
-            new_unary[p_id] += prob[count]
-            count += 1
+#             new_unary[p_id] += prob[count]
+#             count += 1
             
-    # for (i,id) in enumerate(paths.keys()):
-    #     unary[i] /= paths[id].n_frames
+#     # for (i,id) in enumerate(paths.keys()):
+#     #     unary[i] /= paths[id].n_frames
 
-    return unary, new_unary
+#     return unary, new_unary
 
 def segment(frames, unary,source, target, value, segs, potts_weight,paths):
 
@@ -531,12 +578,14 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+flow_edges = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
+    
 from skimage.filter import vsobel,hsobel
     
-from cPickle import load
+import cPickle 
 with open('paths_%s.pickle' % name) as f:
-    paths = load(f)
+    paths = cPickle.load(f)
 
 diffused_image = load("diffused_image_%s.npy" % name)
 data = []
@@ -577,23 +626,6 @@ from sklearn.ensemble import RandomForestClassifier
 forest = RandomForestClassifier(20)
 forest.fit(data,labels)
 
-
-# for i in range(diffused_image.shape[2]):
-#     hist, bin_edges = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
-#     imshow(diffused_image[:,:,i] > bin_edges[1])
-#     imshow(diffused_image[:,:,i] > bin_edges[5])
-    
-#     show()
-
-# loc_prob = np.load('locprior_%s.npy' % name)[:,np.newaxis]
-# loc_prob /= np.max(loc_prob)
-# loc_prob = np.hstack((loc_prob, 1-loc_prob)) + 1e-10
-
-# color_prob = np.load('color_%s.npy' % name) + 1e-10
-
-# u_loc = -np.log(loc_prob)
-# u_color = -np.log(color_prob)
-
 long_paths = {}
 len_thres = 5
 loc_long = {}
@@ -601,15 +633,6 @@ color_long = {}
 for (i,id) in enumerate(paths.keys()):
     if paths[id].n_frames >= 5:
         long_paths[id] = paths[id]
-
-# ls = []
-# cs = []
-# for (l,c) in zip(loc_long.values(), color_long.values()):
-#     ls.append(l)
-#     cs.append(c)
-    
-# ls = np.array(ls)
-# cs = np.vstack(cs)
 
 n_paths = len(long_paths)
 
@@ -620,19 +643,17 @@ for (i,id) in enumerate(long_paths.keys()):
     id_mapping[id] = i
     id_mapping2[i] = id
     
-flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, long_paths)
-unary = loadmat('/home/masa/research/FastVideoSegment/unary_%s.mat'% name)['unaryPotentials']
+flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, flow_edges,long_paths)
 color = loadmat('/home/masa/research/FastVideoSegment/color_%s.mat'% name)['prob']
 locprior = loadmat('/home/masa/research/FastVideoSegment/locprior_%s.mat'% name)['locationUnaries']
-unary = -np.log(locprior+1e-7)
-p_u = path_unary(frames, segs, sp_label, unary, mappings, long_paths)
-#p_color = path_unary(frames, segs, sp_label, color, mappings, paths)
-#p_loc = path_unary(frames, segs, sp_label, locprior, mappings, paths)
-
+loc_unary = -np.log(locprior+1e-7)
+p_u, p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, long_paths,forest)
+loc_weight = 5
 row_index = []
 col_index = []
 color = []
 edge = []
+flow_edge = []
 flow = []
 overlaps = []
 
@@ -642,26 +663,14 @@ for i in range(n_paths):
         col_index.append(a)
         color.append(color_dists[i][a])
         edge.append(edge_dists[i][a] / edge_length[i][a])
+        flow_edge.append(flow_edge_dists[i][a] / edge_length[i][a])
         flow.append(flow_dists[i][a])
         overlaps.append(n_overlap[i][a])
-
-# sigma_c = 70
-# sigma_flow = 10
-# sigma_edge = 0.3
-
-# color_affinity = np.exp(-np.array(color) / (2*sigma_c**2)) 
-# flow_affinity = np.exp(-np.array(flow) / (2*sigma_flow**2))
-# edge_affinity = np.exp(-np.array(edge) / (2*sigma_edge**2))
-
 
 def func(x,lam): return 2*np.exp(-lam*x) - 1
 lam_c = 0.05    
 lam_flow = 0.05    
 lam_edge = 3
-
-#color[edge > 0.8] = 1e10
-#flow[edge > 0.8] = 1e10
-#edge[edge > 0.8] = 1e10
 
 lam_c = 0.00003
 lam_flow = 0.05    
@@ -705,7 +714,8 @@ color_weight = 0
 
 from scipy.io import savemat
 
-savemat('energy.mat', {'UE': p_u.transpose(), 'PE':PE})
+unary = loc_weight * p_u + p_u_forest
+savemat('energy.mat', {'UE': unary.transpose(), 'PE':PE})
 
 mask,labels =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
 
@@ -767,14 +777,15 @@ for (i,id) in enumerate(paths.keys()):
     id_mapping2[i] = id
 
 n_paths = len(paths)    
-flow_dists, edge_dists, color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, paths)
+flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges,flow_edges, paths)
 
-_,new_p_u = path_unary2(frames, segs, sp_label, unary, mappings, paths,forest)
+new_p_u, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest)
 
 row_index = []
 col_index = []
 color = []
 edge = []
+flow_edge = []
 flow = []
 overlaps = []
 
@@ -784,6 +795,7 @@ for i in range(n_paths):
         col_index.append(a)
         color.append(color_dists[i][a])
         edge.append(edge_dists[i][a] / edge_length[i][a])
+        flow_edge.append(flow_edge_dists[i][a] / edge_length[i][a])
         flow.append(flow_dists[i][a])
         overlaps.append(n_overlap[i][a])
                     
@@ -854,7 +866,7 @@ PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
 p_u = path_unary(frames, segs, sp_label, unary, mappings, paths)
-u = 1 * new_p_u +1* p_u
+u = loc_weight * new_p_u +  new_p_u_forest
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
 new_mask, labeling = segment(frames, u, source, target, aff, segs, 0.01,paths)
