@@ -269,7 +269,7 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest):
     
         values = []
         for f in unique_frame:
-            index = mapping[(f,segs[f][rows[0], cols[0]])]
+            index = mapping[(f,segs[f][rows[frame == f][0], cols[frame == f][0]])]
 
             rgb_data[index] = np.mean(ims[f][rows[frame == f],cols[frame == f]], axis=0)
             
@@ -578,7 +578,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
 flow_edges = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
     
 from skimage.filter import vsobel,hsobel
@@ -598,7 +598,9 @@ bin_edges = []
 for i in range(diffused_image.shape[2]):
     hist, bin_edge = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
     bin_edges.append(bin_edge)
-    
+
+fg_image = np.zeros(diffused_image.shape)        
+bg_image = np.zeros(diffused_image.shape)        
 for (i,id) in enumerate(paths.keys()):
     frame = paths[id].frame
     rows = paths[id].rows
@@ -613,9 +615,11 @@ for (i,id) in enumerate(paths.keys()):
         all_data.append(mean_rgb)
         inratio = diffused_image[rows[frame == f][0], cols[frame == f][0], f]
         if inratio > bin_edges[f][5]:
+            fg_image[rows[frame == f], cols[frame == f], f] = 1, 
             data.append(mean_rgb)
             lbl.append(0)
         elif inratio < bin_edges[f][1]:
+            bg_image[rows[frame == f], cols[frame == f], f] = 1,             
             data.append(mean_rgb)
             lbl.append(1)
     
@@ -715,6 +719,7 @@ color_weight = 0
 from scipy.io import savemat
 
 unary = loc_weight * p_u + p_u_forest
+#unary = loc_weight * p_u
 savemat('energy.mat', {'UE': unary.transpose(), 'PE':PE})
 
 mask,labels =  segment(frames, p_u, source, target, aff, segs, 0.01,long_paths)
@@ -823,11 +828,12 @@ lam_edge = 2
 
 color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
+flow_edge_affinity = func(np.array(flow_edge),lam_edge)
 edge_affinity = func(np.array(edge),lam_edge )
-w_e = 2
+w_e = 0
 w_c = 0
 w_f = 1
-affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
+affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_edge_affinity
 
 aff_weighted = affinity *np.array(overlaps)*0.2
 #affinity *= np.array(overlaps)
@@ -859,14 +865,14 @@ for (s,t,a,a2) in zip(source, target, aff,aff2):
 #aff_vis = plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
             
 PE = np.zeros((len(source), 6))
-potts_weight = 10
+potts_weight = 5
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-p_u = path_unary(frames, segs, sp_label, unary, mappings, paths)
 u = loc_weight * new_p_u +  new_p_u_forest
+#u = loc_weight * new_p_u
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
 new_mask, labeling = segment(frames, u, source, target, aff, segs, 0.01,paths)
