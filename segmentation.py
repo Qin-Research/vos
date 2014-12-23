@@ -1,4 +1,4 @@
-from pylab import *
+gfrom pylab import *
 import numpy as np
 #from util import *
 from sys import argv
@@ -236,7 +236,7 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths
                    #     count.append(1)
     return flow_dists, edge_dists, flow_edge_dists, color_dists, edge_len, n_overlap
                        
-def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest):
+def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest,forest2):
     n_paths = len(paths)
 
     n_frames = len(frames)-1
@@ -273,11 +273,14 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest):
 
             rgb_data[index] = np.mean(ims[f][rows[frame == f],cols[frame == f]], axis=0)
             
-    prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)            
+    prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)
+    prob2 = -np.log(forest2.predict_proba(rgb_data) + 1e-7)
+    
         
     count = 0
     unary = np.zeros((n_paths, 2))    
     unary_forest = np.zeros((n_paths, 2))    
+    unary_forest2 = np.zeros((n_paths, 2))    
     for i in range(n_frames):
         uni = np.unique(segs[i])
 
@@ -297,14 +300,17 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest):
             unary[p_id][1] += u_bg
             unary_forest[p_id][0] += prob[count][0]
             unary_forest[p_id][1] += prob[count][1]
+            unary_forest2[p_id][0] += prob2[count][0]
+            unary_forest2[p_id][1] += prob2[count][1]
 
             count += 1
             
     for (i,id) in enumerate(paths.keys()):
         unary[i] /= paths[id].n_frames
         unary_forest[i] /= paths[id].n_frames
+        unary_forest2[i] /= paths[id].n_frames
 
-    return unary, unary_forest
+    return unary, unary_forest,unary_forest2
 
 def plot_job(path1, path2, v, r,c,n_frame):
     
@@ -578,7 +584,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
 sp_file = "../TSP/results2/%s.mat" % name
 sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
-edges = loadmat('/home/masa/research/release/%s.mat' % name)['edge']
+edges = loadmat('/home/masa/research/release/%s.mat' % name)['edges']
 flow_edges = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
     
 from skimage.filter import vsobel,hsobel
@@ -651,7 +657,7 @@ flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = pat
 color = loadmat('/home/masa/research/FastVideoSegment/color_%s.mat'% name)['prob']
 locprior = loadmat('/home/masa/research/FastVideoSegment/locprior_%s.mat'% name)['locationUnaries']
 loc_unary = -np.log(locprior+1e-7)
-p_u, p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, long_paths,forest)
+p_u, p_u_forest,_ = path_unary(frames, segs, sp_label, loc_unary, mappings, long_paths,forest,forest)
 loc_weight = 5
 row_index = []
 col_index = []
@@ -772,8 +778,8 @@ data = np.vstack(data)
 labels = np.concatenate(lbl)        
 
 from sklearn.ensemble import RandomForestClassifier
-forest = RandomForestClassifier(20)
-forest.fit(data,labels)
+forest2 = RandomForestClassifier(20)
+forest2.fit(data,labels)
 
 id_mapping = {}
 id_mapping2 = {}
@@ -784,7 +790,7 @@ for (i,id) in enumerate(paths.keys()):
 n_paths = len(paths)    
 flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges,flow_edges, paths)
 
-new_p_u, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest)
+
 
 row_index = []
 col_index = []
@@ -830,10 +836,10 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 flow_edge_affinity = func(np.array(flow_edge),lam_edge)
 edge_affinity = func(np.array(edge),lam_edge )
-w_e = 0
+w_e = 2
 w_c = 0
 w_f = 1
-affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_edge_affinity
+affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_affinity
 
 aff_weighted = affinity *np.array(overlaps)*0.2
 #affinity *= np.array(overlaps)
@@ -863,17 +869,21 @@ for (s,t,a,a2) in zip(source, target, aff,aff2):
     aff_dict2[s][t] = a2   
 
 #aff_vis = plot_affinity2(aff_dict, frames, sp_label, paths, id_mapping, id_mapping2)
+new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
-potts_weight = 5
+potts_weight = 10
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-u = loc_weight * new_p_u +  new_p_u_forest
+loc_weight = 5
+u = loc_weight * new_p_u + 2* new_p_u_forest + 0*p_u_forest
 #u = loc_weight * new_p_u
+#u = new_p_u_forest
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
+
 
 new_mask, labeling = segment(frames, u, source, target, aff, segs, 0.01,paths)
 
@@ -901,7 +911,7 @@ for i in range(len(new_mask)):
     axis("off")
         
     show() 
-
+    
 #################################################################################
         
 # gt = get_segtrack_gt(name)
