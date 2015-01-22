@@ -567,8 +567,8 @@ def plot_affinities(frames, affs):
         show()
 
         
-name = 'bmx'
-#name = 'hummingbird'
+#name = 'bmx'
+name = 'hummingbird'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -654,7 +654,7 @@ for (i,id) in enumerate(long_paths.keys()):
     id_mapping2[i] = id
     
 flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, flow_edges,long_paths)
-color = loadmat('/home/masa/research/FastVideoSegment/color_%s.mat'% name)['prob']
+
 locprior = loadmat('/home/masa/research/FastVideoSegment/locprior_%s.mat'% name)['locationUnaries']
 loc_unary = -np.log(locprior+1e-7)
 p_u, p_u_forest,_ = path_unary(frames, segs, sp_label, loc_unary, mappings, long_paths,forest,forest)
@@ -710,7 +710,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 PE = np.zeros((len(source), 6))
-potts_weight = 0.01
+potts_weight = 1
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -836,7 +836,7 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 flow_edge_affinity = func(np.array(flow_edge),10)
 edge_affinity = func(np.array(edge),lam_edge )
-w_e = 0
+w_e = 2
 w_c = 0
 w_f = 1
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_edge_affinity
@@ -872,7 +872,7 @@ for (s,t,a,a2) in zip(source, target, aff,aff2):
 new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
-potts_weight = 5
+potts_weight = 1
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -913,7 +913,6 @@ for i in range(len(new_mask)):
     show() 
     
 #################################################################################
-
 gt = get_segtrack_gt(name)
 g = gt[0]
 if len(gt) > 1:
@@ -929,14 +928,8 @@ def compute_ap(gt, pred):
         m2 = np.zeros(gt[0].shape)
         m1[gt[i].astype(int) == 1] = 1
         m2[pred[i].astype(int) == 1] = 1
-        subplot(1,2,1)
-        imshow(m1)
-        subplot(1,2,2)
-        imshow(m2)
-        show()
         
         score += float(np.sum(np.logical_and(m1, m2))) / np.sum(np.logical_or(m1, m2))
 
     print score
     return score / len(pred)
-        

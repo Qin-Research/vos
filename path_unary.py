@@ -162,9 +162,9 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges):
     #     edge_strength[rows[i],cols[i]] /= count_matrix[rows[i],cols[i]]
     # return adj, edge_strength 
                        
-#name = 'hummingbird'
-name = 'bmx'
-#name = 'soldier'
+name = 'hummingbird'
+#name = 'bmx'
+name = 'girl'
 
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
@@ -306,7 +306,7 @@ for i in range(len(inratios)):
     count += len(inratios[i][0])
         
 savemat('diffused_%s.mat' % name, {'diffused_inratio':diffused_ratios})                        
-bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
+#bmaps = loadmat('/home/masa/research/FastVideoSegment/bmaps_%s.mat' % name)['boundaryMaps']
 # bmaps = bmaps > 0.2
 
 # new_vx = np.zeros(vx.shape)
@@ -372,6 +372,7 @@ for (i,id) in enumerate(paths.keys()):
 val = plot_value(paths, sp_label, u, jet())
 
 for i in range(val.shape[2]):
+    print i
     figure(figsize(21,18))
     subplot(1,3,1)
     imshow(inratio_image[:,:,i])
@@ -381,18 +382,33 @@ for i in range(val.shape[2]):
     imshow(diffused_image[:,:,i])
     show()
 
-for i in range(diffused_image.shape[2]):
-    hist, bin_edges = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
-    subplot(1,3,1)
-    imshow(diffused_image[:,:,i])
-    subplot(1,3,2)
-    imshow(diffused_image[:,:,i] > bin_edges[1])
-    subplot(1,3,3)
-    imshow(diffused_image[:,:,i] > bin_edges[5])
+# for i in range(diffused_image.shape[2]):
+#     hist, bin_edges = np.histogram(diffused_image[:,:,i].flatten(), bins = 20)
+#     subplot(1,3,1)
+#     imshow(diffused_image[:,:,i])
+#     subplot(1,3,2)
+#     imshow(diffused_image[:,:,i] > bin_edges[1])
+#     subplot(1,3,3)
+#     imshow(diffused_image[:,:,i] > bin_edges[5])
     
-    show()
+#     show()
 
-save("diffused_image_%s.npy" % name, diffused_image)    
+save("diffused_image_%s.npy" % name, diffused_image)
+
+# def plotGraph(im):
+#       fig = plt.figure()
+#       plt.imshow(im)
+#       return fig
+
+# from matplotlib.backends.backend_pdf import PdfPages
+
+# plot1 = plotGraph(inratio_image[:,:,i])
+# plot2 = plotGraph(diffused_image[:,:,i])
+
+# pp = PdfPages('foo.pdf')
+# pp.savefig(plot1)
+# pp.savefig(plot2)
+# pp.close()  
 #loc2 = loadmat('/home/masa/research/FastVideoSegment/loc.mat')['loc']                                
 # from sklearn.ensemble import RandomForestClassifier
 # from sklearn import svm

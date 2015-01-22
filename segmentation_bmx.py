@@ -710,7 +710,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 PE = np.zeros((len(source), 6))
-potts_weight = 0.01
+potts_weight = 0.5
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -836,7 +836,7 @@ color_affinity = func(np.array(color), lam_c )
 flow_affinity = func(np.array(flow),lam_flow )
 flow_edge_affinity = func(np.array(flow_edge),10)
 edge_affinity = func(np.array(edge),lam_edge )
-w_e = 0
+w_e = 2
 w_c = 0
 w_f = 1
 affinity = w_e * edge_affinity + w_c * color_affinity + w_f * flow_edge_affinity
@@ -872,14 +872,14 @@ for (s,t,a,a2) in zip(source, target, aff,aff2):
 new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
-potts_weight = 5
+potts_weight = 0.5
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
 loc_weight = 0.5
-u = loc_weight * new_p_u + 1.5* new_p_u_forest + 1*p_u_forest
+u = loc_weight * new_p_u + 2* new_p_u_forest + 2*p_u_forest
 #u = loc_weight * new_p_u
 #u = new_p_u_forest
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
@@ -887,9 +887,13 @@ savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
 new_mask, labeling = segment(frames, u, source, target, aff, segs, 0.01,paths)
 
+n = len(new_mask)
+r,c = new_mask[0].shape
+m = np.zeros((r,c,n))
 #new_mask =  segment(frames, u, source, target, aff, segs, 0.01,paths)
 
 for i in range(len(new_mask)):
+    m[:,:,i] = new_mask[i]
     figure(figsize(21,18))
 
     print i
@@ -913,30 +917,22 @@ for i in range(len(new_mask)):
     show() 
     
 #################################################################################
+# AP 0.76
 
-gt = get_segtrack_gt(name)
-g = gt[0]
-if len(gt) > 1:
-    for i in range(1,len(gt)):
-        for j in range(len(gt[i])):
-            g[j] += gt[i][j]
-        
-import ipdb
-def compute_ap(gt, pred):
-    score = 0
-    for i in range(len(pred)):
-        m1 = np.zeros(gt[0].shape)
-        m2 = np.zeros(gt[0].shape)
-        m1[gt[i].astype(int) == 1] = 1
-        m2[pred[i].astype(int) == 1] = 1
-        subplot(1,2,1)
-        imshow(m1)
-        subplot(1,2,2)
-        imshow(m2)
-        show()
-        
-        score += float(np.sum(np.logical_and(m1, m2))) / np.sum(np.logical_or(m1, m2))
+save("%s_mask.npy" % name, m)
 
-    print score
-    return score / len(pred)
-        
+res = []
+for i in range(len(new_mask)):
+    print i
+    figure(figsize(12,9))
+    result = np.ones((r,c,3), dtype=ubyte) * 125
+    rs,cs = np.nonzero(new_mask[i] == 1)
+    result[rs,cs] = imgs[i][rs,cs]
+    res.append(result) 
+    subplot(1,2,1)
+    imshow(imgs[i])
+    axis("off")
+    subplot(1,2,2)
+    imshow(result)
+    axis("off")    
+    show()

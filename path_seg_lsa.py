@@ -430,8 +430,8 @@ def segment(frames, unary,source, target, value, segs, potts_weight,paths):
                 
     return mask
                            
-#name = 'hummingbird'
-name = 'girl'
+name = 'bmx'
+#name = 'girl'
 imdir = '/home/masa/research/code/rgb/%s/' % name
 vx = loadmat('/home/masa/research/code/flow/%s/vx.mat' % name)['vx']
 vy = loadmat('/home/masa/research/code/flow/%s/vy.mat' % name)['vy']
