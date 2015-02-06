@@ -1,12 +1,4 @@
-*.user
-build
-flow
-*.shelve
-robust_pn
-*.pickle
-*.pyc
-*.npy
-*.mat
-*.png
-*.h5
-*.autosave
+diffused
+diffused_image
+superpixel
+trajs
