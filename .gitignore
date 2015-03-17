@@ -2,3 +2,8 @@ diffused
 diffused_image
 superpixel
 trajs
+data
+external
+old
+*.mat
+*.pyc

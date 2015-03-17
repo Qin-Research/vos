@@ -14,15 +14,8 @@ from IPython.core.pylabtools import figsize
 from path import Path
 from scipy.sparse import csr_matrix, spdiags
 
-def diffuse_inprob(inratios,paths, segs):
+def diffuse_inprob(inratios,paths, segs, imgs):
                                
-    name = 'bmx'
-    
-    imdir = 'data/rgb/%s/' % name
-    
-    frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")]
-    imgs = [img_as_ubyte(imread(f)) for f in frames]
-            
     init_ratio = []
     id2index = []
     index = 0
@@ -75,7 +68,7 @@ def diffuse_inprob(inratios,paths, segs):
                 dist.append(d)
     
     adjs = []            
-    for f in range(len(segs)-1):
+    for f in range(len(segs)):
         adjs.append(get_sp_adj(segs[f]))
         
     for i in range(n_frames-1):
@@ -104,7 +97,6 @@ def diffuse_inprob(inratios,paths, segs):
                 dist.append(d)
     
     sigma = 30 
-    #sigma2 = 1000
     values2 = np.exp(-np.array(dist) / (2*sigma**2))
     
     from scipy.sparse import csr_matrix, spdiags
@@ -127,11 +119,9 @@ def diffuse_inprob(inratios,paths, segs):
         diffused_ratios.append(diffused_ratio[count:len(inratios[i][0])+count])
         count += len(inratios[i][0])
             
-    savemat('diffused_%s.mat' % name, {'diffused_inratio':diffused_ratios})
-
     u = np.zeros(len(paths))
 
-    h,w = imgs[0].shape
+    h,w,_ = imgs[0].shape
     s = (h,w,len(imgs))
     inratio_image = np.zeros(s)
     diffused_image = np.zeros(s)
