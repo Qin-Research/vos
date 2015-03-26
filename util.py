@@ -13,7 +13,7 @@ from bidict import bidict
 
 ldof_cpu = "/home/masa/research/flow/pami2010LibLinux64/demo_ldof"
 color_flow = '/home/masa/research/code/flow_util/color_flow'
-segtrackv2_dir = "/home/masa/research/video_code/SegTrackv2/"
+segtrackv2_dir = "data/SegTrackv2/"
 
 def alpha_composite(img, mask, alpha=0.5):
     comp = Image.blend(Image.fromarray(img), Image.fromarray(mask), alpha)
@@ -300,3 +300,16 @@ def relabel(sp_label):
 def get_tsp(sp_label):
     sps,mappings = relabel(sp_label)
     return sps,mappings
+
+def compute_ap(gt, pred):
+    score = 0
+    for i in range(len(pred)):
+        m1 = np.zeros(gt[0].shape)
+        m2 = np.zeros(gt[0].shape)
+        m1[gt[i].astype(int) == 1] = 1
+        m2[pred[i].astype(int) == 1] = 1
+        
+        score += float(np.sum(np.logical_and(m1, m2))) / np.sum(np.logical_or(m1, m2))
+
+    print score
+    return score / len(pred)

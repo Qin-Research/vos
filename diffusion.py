@@ -13,6 +13,7 @@ from skimage.segmentation import find_boundaries
 from IPython.core.pylabtools import figsize
 from path import Path
 from scipy.sparse import csr_matrix, spdiags
+from util import *
 
 def diffuse_inprob(inratios,paths, segs, imgs):
                                
@@ -30,7 +31,7 @@ def diffuse_inprob(inratios,paths, segs, imgs):
     row_index = []
     col_index = []
     rgbs = np.zeros((len(init_ratio),3))
-    n_frames = len(frames)        
+    n_frames = len(imgs)        
     for (i,id) in enumerate(paths.keys()):
         frame = paths[id].frame
         rows = paths[id].rows

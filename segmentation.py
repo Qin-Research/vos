@@ -67,13 +67,12 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths
             edge_length.append(defaultdict(int))
             adj_list.append(set())
 
-            
         for i in range(sp_label.shape[0]):
            for j in range(sp_label.shape[1]):
                l = sp_label[i,j,k]
                e = edges[i,j,k]
                flow_e = flow_edges[i,j,k]
-               if not mapping.has_key(l):continue
+               if not mapping.has_key(l): continue
                                             
                index = mapping[l]
                if i > 0:
@@ -284,12 +283,12 @@ def segment(frames, unary,source, target, value, segs,paths, lsa_path):
         else:
             mask_label[path.rows, path.cols, path.frame] = 0            
             
-    for j in range(len(segs)-1):
+    for j in range(len(segs)):
         mask.append(mask_label[:,:,j])
     
     return mask,labels
 
-name = 'bmx'
+name = 'hummingbird'
 data_dir = "data"
 imdir = "%s/rgb/%s/" % (data_dir,name)
 
@@ -298,7 +297,7 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
         
 sp_file = "%s/tsp/%s.mat" % (data_dir,name)
 
-sp_label = loadmat(sp_file)['sp_labels'].astype(np.int)[:,:,:-1]
+sp_label = loadmat(sp_file)['sp_labels'][:,:,:-1]
 segs,mappings = get_tsp(sp_label)
 edges = loadmat("%s/edges/%s.mat" % (data_dir,name))['edges']
 flow_edges = loadmat("%s/flow_edges/%s.mat" % (data_dir,name))['boundaryMaps']
@@ -311,6 +310,7 @@ with open("%s/trajs/%s.pickle" % (data_dir,name) ) as f:
 
 #from diffusion import diffuse_inprob
 inratios = loadmat("%s/inprobs/%s.mat" % (data_dir,name))['inRatios']
+from diffusion import diffuse_inprob
 diffused_ratio,diffused_image = diffuse_inprob(inratios, paths, segs,imgs)
 
 ###### Random forest ########
@@ -551,22 +551,22 @@ for i in range(len(new_mask)):
     
 #################################################################################
 
-# save("%s_mask.npy" % name, m)
-# gt = get_segtrack_gt(name)
-# g = gt[0]
-# if len(gt) > 1:
-#     for i in range(1,len(gt)):
-#         for j in range(len(gt[i])):
-#             g[j] += gt[i][j]
+gt = get_segtrack_gt(name)
+g = gt[0]
+if len(gt) > 1:
+    for i in range(1,len(gt)):
+        for j in range(len(gt[i])):
+            g[j] += gt[i][j]
 
 
-# res = []
-# for i in range(len(g)-1):
-#     print i
-#     figure(figsize(15,12))
-#     result = np.ones((r,c,3), dtype=ubyte) * 125
-#     rs,cs = np.nonzero(new_mask[i] == 1)
-# #    rs,cs = np.nonzero(g[i] == 1)
-#     result[rs,cs] = imgs[i][rs,cs]
-#     res.append(np.hstack((imgs[i],result)))
-                         
+res = []
+for i in range(len(g)-1):
+    print i
+#    figure(figsize(15,12))
+    result = np.ones((r,c,3), dtype=ubyte) * 125
+    rs,cs = np.nonzero(new_mask[i] == 1)
+#    rs,cs = np.nonzero(g[i] == 1)
+    result[rs,cs] = imgs[i][rs,cs]
+    res.append(np.hstack((imgs[i],result)))
+
+print compute_ap(g, new_mask)

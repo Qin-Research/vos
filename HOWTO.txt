@@ -1,0 +1,11 @@
+1. Install pip if you haven't
+
+2. Install required libraries by typing:
+for req in $(cat requirements.txt); do pip install $req; done
+
+3. Install PIL (Python Imaging Library) and ipython-qtconsole
+
+4. Start ipython-qtconsole by typing:
+ipython qtconsole --pylab=inline
+
+5. run segmentation.py in the qtconsole by typing 'run segmentation'
