@@ -288,7 +288,12 @@ def segment(frames, unary,source, target, value, segs,paths, lsa_path):
     
     return mask,labels
 
-name = 'hummingbird'
+### which video to segment ###
+name = 'soldier'
+#name = 'bmx'
+#name = 'girl'
+#name = 'hummingbird'
+
 data_dir = "data"
 imdir = "%s/rgb/%s/" % (data_dir,name)
 
@@ -415,7 +420,10 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         aff.append(a)
 
 PE = np.zeros((len(source), 6))
-potts_weight = 0.5
+
+param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
+potts_weight = param[name]
+
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -508,14 +516,18 @@ for (s,t,a) in zip(source, target, aff):
 new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
-potts_weight = 0.5
+param = {"bmx":0.5, "girl":1, "hummingbird":0.1, "soldier":0.1}
+potts_weight = param[name]
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
 loc_weight = 0.5
-u = loc_weight * new_p_u + 2* new_p_u_forest + 2*p_u_forest
+w1 = {"bmx":0.5, "girl":0.5, "hummingbird":0.5, "soldier":0.5}
+w2 = {"bmx":2, "girl":0.5, "hummingbird":0.5, "soldier":1}
+w3 = {"bmx":2, "girl":1.5, "hummingbird":1.5, "soldier":2}
+u = w1[name] * new_p_u + w2[name] * new_p_u_forest + w3[name] *p_u_forest
 
 savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
 
@@ -529,7 +541,6 @@ for i in range(len(new_mask)):
     m[:,:,i] = new_mask[i]
     figure(figsize(21,18))
 
-    print i
     im = img_as_ubyte(imread(frames[i]))            
     subplot(1,4,1)
     imshow(im)
@@ -561,7 +572,7 @@ if len(gt) > 1:
 
 res = []
 for i in range(len(g)-1):
-    print i
+
 #    figure(figsize(15,12))
     result = np.ones((r,c,3), dtype=ubyte) * 125
     rs,cs = np.nonzero(new_mask[i] == 1)

@@ -1,3 +1,7 @@
+I recommend install Anaconda python distribution first.
+
+Steps to reproduce results:
+
 1. Install pip if you haven't
 
 2. Install required libraries by typing:

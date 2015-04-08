@@ -1,0 +1,8 @@
+joblib
+scipy
+numpy
+scikit-learn
+scikit-image
+matplotlib
+bidict
+ipython

@@ -311,5 +311,4 @@ def compute_ap(gt, pred):
         
         score += float(np.sum(np.logical_and(m1, m2))) / np.sum(np.logical_or(m1, m2))
 
-    print score
     return score / len(pred)
