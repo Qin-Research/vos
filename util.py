@@ -10,6 +10,7 @@ from skimage.segmentation import relabel_sequential
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from bidict import bidict
+from joblib import Parallel, delayed
 
 ldof_cpu = "/home/masa/research/flow/pami2010LibLinux64/demo_ldof"
 color_flow = '/home/masa/research/code/flow_util/color_flow'
@@ -273,34 +274,33 @@ def get_sp_adj(seg):
     return adj
 
 
-def relabel(sp_label):
-    segs = []
-    mappings = []
-    r,c,n = sp_label.shape
-    
-    for i in range(n):
-        count = 0
-        seg = np.zeros((r,c),dtype=np.int)
-        mapping = bidict()
-        for y in range(r):
-            for x in range(c):
-                l = sp_label[y,x,i]
-                if l not in mapping.keys():
-                    seg[y,x] = count
-                    mapping[l] = count
-                    count += 1
-                else:
-                    seg[y,x] = mapping[l]
-                    
-        mappings.append(mapping)
-        segs.append(seg)
+def relabel_job(sp_label):
+    count = 0
+    r,c = sp_label.shape
+    seg = np.zeros((r,c),dtype=np.int)
+    mapping = bidict()
 
-    return segs, mappings
+    for y in range(r):
+        for x in range(c):
+            l = sp_label[y,x]
+            if l not in mapping.keys():
+                seg[y,x] = count
+                mapping[l] = count
+                count += 1
+            else:
+                seg[y,x] = mapping[l]
                 
-def get_tsp(sp_label):
-    sps,mappings = relabel(sp_label)
-    return sps,mappings
+    return seg, mapping
+    
+def relabel(sp_label):
+    r,c,n = sp_label.shape
 
+    r = Parallel(n_jobs=-1)(delayed(relabel_job)(sp_label[:,:,i]) for i in range(n))
+    segs,mappings = zip(*r)
+    
+    return segs, mappings
+    
+    
 def compute_ap(gt, pred):
     score = 0
     for i in range(len(pred)):

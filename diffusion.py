@@ -15,22 +15,22 @@ from path import Path
 from scipy.sparse import csr_matrix, spdiags
 from util import *
 
-def diffuse_inprob(inratios,paths, segs, imgs):
+def diffuse_inprob(inprobs,paths, segs, imgs):
                                
-    init_ratio = []
+    init_prob = []
     id2index = []
     index = 0
-    for i in range(len(inratios)):
+    for i in range(len(inprobs)):
         id2index.append({})
-        for (jj,j) in enumerate(inratios[i][0]):
-            init_ratio.append(j[0])
+        for (jj,j) in enumerate(inprobs[i][0]):
+            init_prob.append(j[0])
             id2index[i][jj] = index
             index += 1
     
     dist = []
     row_index = []
     col_index = []
-    rgbs = np.zeros((len(init_ratio),3))
+    rgbs = np.zeros((len(init_prob),3))
     n_frames = len(imgs)        
     for (i,id) in enumerate(paths.keys()):
         frame = paths[id].frame
@@ -101,7 +101,7 @@ def diffuse_inprob(inratios,paths, segs, imgs):
     values2 = np.exp(-np.array(dist) / (2*sigma**2))
     
     from scipy.sparse import csr_matrix, spdiags
-    n_node = len(init_ratio)
+    n_node = len(init_prob)
     W = csr_matrix((values2, (row_index, col_index)), shape=(n_node, n_node))
     
     inv_D =spdiags(1.0/((W.sum(axis=1)).flatten()), 0, W.shape[0], W.shape[1])
@@ -111,20 +111,19 @@ def diffuse_inprob(inratios,paths, segs, imgs):
     from scipy.sparse import eye
     
     from scipy.sparse.linalg import spsolve,lsmr
-    diffused_ratio = spsolve(lhs, D.dot(np.array(init_ratio)))
+    diffused_prob = spsolve(lhs, D.dot(np.array(init_prob)))
     
-    diffused_ratios = []
+    diffused_probs = []
     
     count = 0
-    for i in range(len(inratios)):
-        diffused_ratios.append(diffused_ratio[count:len(inratios[i][0])+count])
-        count += len(inratios[i][0])
+    for i in range(len(inprobs)):
+        diffused_probs.append(diffused_prob[count:len(inprobs[i][0])+count])
+        count += len(inprobs[i][0])
             
     u = np.zeros(len(paths))
 
     h,w,_ = imgs[0].shape
     s = (h,w,len(imgs))
-    inratio_image = np.zeros(s)
     diffused_image = np.zeros(s)
     
     for (i,id) in enumerate(paths.keys()):
@@ -137,7 +136,6 @@ def diffuse_inprob(inratios,paths, segs, imgs):
         for f in unique_frame:
             r = rows[frame == f]
             c = cols[frame == f]
-            inratio_image[r,c,f] = inratios[f][0][segs[f][r[0],c[0]]][0]
-            diffused_image[r,c,f] = diffused_ratio[id2index[f][segs[f][r[0],c[0]]]]
+            diffused_image[r,c,f] = diffused_prob[id2index[f][segs[f][r[0],c[0]]]]
 
-    return diffused_ratios, diffused_image                                        
+    return diffused_probs, diffused_image                                        

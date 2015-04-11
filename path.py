@@ -13,12 +13,18 @@ from skimage.segmentation import find_boundaries
 from IPython.core.pylabtools import figsize
 from util import *
 
+
 class Path:
+    # Trajectory represented as video coordinates (x, y, z) of pixels in it
+    # Path is the same as trajectory
+    # z coordinate is frame index
+    # For example, the first pixel's coordinate (x,y,z) is (rows[0], cols[0], frame[0])
+    
     def __init__(self, id, rows, cols, frame, imgs, vx, vy):
-        self.id = id
-        self.rows = rows
-        self.cols = cols
-        self.frame = frame
+        self.id = id #superpixel label
+        self.rows = rows # row index 
+        self.cols = cols # col index
+        self.frame = frame # frame index
         self.n_frames = len(np.unique(self.frame))
 
     def plot(self, frames):

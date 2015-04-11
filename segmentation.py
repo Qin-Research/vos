@@ -26,7 +26,8 @@ def plot_value(paths, sp_label, values,cm):
 
     return val
 
-def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths):
+
+def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
     row_index = []
     col_index = []
     edge_values =[]
@@ -37,33 +38,23 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths
 
     edge_dists = []
     flow_edge_dists = []
-    color_dists = []
-    flow_dists = []
     edge_len = []
-    n_overlap = []
 
     from collections import defaultdict
     for i in range(n_paths):
         edge_dists.append(defaultdict(float))
         flow_edge_dists.append(defaultdict(float))
-        color_dists.append(defaultdict(float))
-        flow_dists.append(defaultdict(float))
         edge_len.append(defaultdict(int))
-        n_overlap.append(defaultdict(int))
         
     for k in range(n_frames):
         edge_dists_buf = []
         flow_edge_dists_buf = []
-        color_dists_buf = []
-        flow_dists_buf = []
         edge_length = []
         adj_list = []
     
         for i in range(n_paths):
             edge_dists_buf.append(defaultdict(float))
             flow_edge_dists_buf.append(defaultdict(float))
-            color_dists_buf.append(defaultdict(float))
-            flow_dists_buf.append(defaultdict(float))
             edge_length.append(defaultdict(int))
             adj_list.append(set())
 
@@ -72,68 +63,59 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths
                l = sp_label[i,j,k]
                e = edges[i,j,k]
                flow_e = flow_edges[i,j,k]
-               if not mapping.has_key(l): continue
+               if not id2ind.has_key(l): continue
                                             
-               index = mapping[l]
+               index = id2ind[l]
                if i > 0:
                    ll = sp_label[i-1,j,k]
                    if l != ll:
 
-                       if not mapping.has_key(ll):continue                       
-                       edge_dists_buf[index][mapping[ll]] += edges[i-1,j,k] + e
-                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e
-                       edge_length[index][mapping[ll]] += 1
-                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                       
-                       adj_list[index].add(mapping[ll])
+                       if not id2ind.has_key(ll):continue                       
+                       edge_dists_buf[index][id2ind[ll]] += edges[i-1,j,k] + e
+                       flow_edge_dists_buf[index][id2ind[ll]] += flow_edges[i-1,j,k] + flow_e
+                       edge_length[index][id2ind[ll]] += 1
+                       adj_list[index].add(id2ind[ll])
 
                        
                if i < sp_label.shape[0]-1:
                    ll = sp_label[i+1,j,k]
 
                    if l != ll:
-                       if not mapping.has_key(ll):continue                       
-                       edge_dists_buf[index][mapping[ll]] += edges[i+1,j,k] + e
-                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e                       
-                       edge_length[index][mapping[ll]] += 1
-                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
-                       adj_list[index].add(mapping[ll])
+                       if not id2ind.has_key(ll):continue                       
+                       edge_dists_buf[index][id2ind[ll]] += edges[i+1,j,k] + e
+                       flow_edge_dists_buf[index][id2ind[ll]] += flow_edges[i-1,j,k] + flow_e                       
+                       edge_length[index][id2ind[ll]] += 1
+                       adj_list[index].add(id2ind[ll])
                        
                if j > 0:
                    ll = sp_label[i,j-1,k]
 
                    if l != ll:
-                       if not mapping.has_key(ll):continue                       
-                       edge_dists_buf[index][mapping[ll]] += edges[i,j-1,k] + e
-                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e                       
-                       edge_length[index][mapping[ll]] += 1
-                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
-                       adj_list[index].add(mapping[ll])
+                       if not id2ind.has_key(ll):continue                       
+                       edge_dists_buf[index][id2ind[ll]] += edges[i,j-1,k] + e
+                       flow_edge_dists_buf[index][id2ind[ll]] += flow_edges[i-1,j,k] + flow_e                       
+                       edge_length[index][id2ind[ll]] += 1
+                       adj_list[index].add(id2ind[ll])
                    
                if j < sp_label.shape[1] -1:
                    ll = sp_label[i,j+1,k]
 
                    if l != ll:
-                       if not mapping.has_key(ll):continue                       
-                       edge_dists_buf[index][mapping[ll]] += edges[i,j+1,k] + e
-                       flow_edge_dists_buf[index][mapping[ll]] += flow_edges[i-1,j,k] + flow_e                       
-                       edge_length[index][mapping[ll]] += 1
-                       if not mapping[ll] in adj_list[index]: n_overlap[mapping[l]][mapping[ll]] += 1                                              
-                       adj_list[index].add(mapping[ll])
+                       if not id2ind.has_key(ll):continue                       
+                       edge_dists_buf[index][id2ind[ll]] += edges[i,j+1,k] + e
+                       flow_edge_dists_buf[index][id2ind[ll]] += flow_edges[i-1,j,k] + flow_e                       
+                       edge_length[index][id2ind[ll]] += 1
+                       adj_list[index].add(id2ind[ll])
 
         for i in range(n_paths):
             if len(adj_list[i]) == 0: continue
-            p1 = paths[mapping2[i]]
+            p1 = paths[ind2id[i]]
             f_index1 = np.nonzero(np.unique(p1.frame) == k)[0][0]
             for a in adj_list[i]:
                 
-                p2 = paths[mapping2[a]]
+                p2 = paths[ind2id[a]]
                 f_index2 = np.nonzero(np.unique(p2.frame) == k)[0][0]
                 
-                flow_dists_buf[i][a] = np.linalg.norm(p1.mean_flows[f_index1] - p2.mean_flows[f_index2])**2
-                color_dists_buf[i][a] = np.linalg.norm(p1.mean_rgb[f_index1] - p2.mean_rgb[f_index2])**2
-                flow_dists[i][a] = max(flow_dists[i][a],flow_dists_buf[i][a])
-                color_dists[i][a] = max(color_dists[i][a],color_dists_buf[i][a])
-
                 if edge_dists[i][a] <= edge_dists_buf[i][a]:
                     edge_dists[i][a] =edge_dists_buf[i][a]
                 if flow_edge_dists[i][a] <= flow_edge_dists_buf[i][a]:
@@ -141,16 +123,16 @@ def path_neighbors(sp_label, n_paths, mapping, mapping2, edges, flow_edges,paths
                     
                     edge_len[i][a] = edge_length[i][a]
 
-    return flow_dists, edge_dists, flow_edge_dists, color_dists, edge_len, n_overlap
+    return edge_dists, flow_edge_dists, edge_len
                        
-def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest,forest2):
+def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refined_forest):
     n_paths = len(paths)
 
     n_frames = len(frames)-1
 
-    id_mapping = {}
+    id2ind = {}
     for (i,id) in enumerate(paths.keys()):
-        id_mapping[id] = i
+        id2ind[id] = i
 
     mapping = {}
     count = 0
@@ -179,8 +161,8 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest,forest2)
 
             rgb_data[index] = np.mean(ims[f][rows[frame == f],cols[frame == f]], axis=0)
             
-    prob = -np.log(forest.predict_proba(rgb_data) + 1e-7)
-    prob2 = -np.log(forest2.predict_proba(rgb_data) + 1e-7)
+    prob = -np.log(initial_forest.predict_proba(rgb_data) + 1e-7)
+    prob2 = -np.log(refined_forest.predict_proba(rgb_data) + 1e-7)
     
         
     count = 0
@@ -191,12 +173,12 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest,forest2)
         uni = np.unique(segs[i])
 
         for u in uni:
-            orig_id = mappings[i][:u]
+            orig_id = label_mappings[i][:u]
 
-            if not id_mapping.has_key(orig_id):
+            if not id2ind.has_key(orig_id):
                 count += 1
                 continue
-            p_id = id_mapping[orig_id]
+            p_id = id2ind[orig_id]
             u_fg = sp_unary[count][0]
             u_bg = sp_unary[count][1]
 
@@ -216,7 +198,7 @@ def path_unary(frames, segs, sp_label, sp_unary, mappings, paths,forest,forest2)
 
     return unary, unary_forest,unary_forest2
 
-def plot_affinity(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
+def plot_affinity(affinity, frames, sp_label, paths, id2ind, ind2id):
 
     r,c,n_frame = sp_label.shape
     aff = np.ones((r,c,n_frame)) * inf
@@ -225,30 +207,30 @@ def plot_affinity(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
         for j in range(c):
             for i in range(r):
                l = sp_label[i,j,k]
-               index = id_mapping[l]
+               index = id2ind[l]
                
                if i > 0:
                    ll = sp_label[i-1,j,k]
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]
+                       aff[i,j,k] = affinity[index][id2ind[ll]]
 
                if i < sp_label.shape[0]-1:
                    ll = sp_label[i+1,j,k]
 
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       aff[i,j,k] = affinity[index][id2ind[ll]]                       
                        
                if j > 0:
                    ll = sp_label[i,j-1,k]
 
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       aff[i,j,k] = affinity[index][id2ind[ll]]                       
                                               
                if j < sp_label.shape[1] -1:
                    ll = sp_label[i,j+1,k]
 
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       aff[i,j,k] = affinity[index][id2ind[ll]]                       
 
     for i in range(sp_label.shape[2]):
 
@@ -268,8 +250,10 @@ def plot_affinity(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
                                        
     return aff
           
-def segment(frames, unary,source, target, value, segs,paths, lsa_path):
+def optimize_lsa(unary,pairwise, segs,paths):
 
+    savemat('energy.mat', {'UE': unary.transpose(), 'PE':pairwise})    
+    lsa_path = "external/LSA/"
     os.system("matlab -nodisplay -nojvm -nosplash < %s/optimize.m" % lsa_path);
     labels = loadmat('labeling.mat')['labels']
     count = 0
@@ -302,23 +286,36 @@ imgs = [img_as_ubyte(imread(f)) for f in frames]
         
 sp_file = "%s/tsp/%s.mat" % (data_dir,name)
 
-sp_label = loadmat(sp_file)['sp_labels'][:,:,:-1]
-segs,mappings = get_tsp(sp_label)
-edges = loadmat("%s/edges/%s.mat" % (data_dir,name))['edges']
-flow_edges = loadmat("%s/flow_edges/%s.mat" % (data_dir,name))['boundaryMaps']
-    
+#load precomputed temporal superpixels (tsp)
+sp_label = loadmat(sp_file)['sp_labels'][:,:,:-1] #ignore the last frame (no optical flow available)
+
+# relabel segment labels to 0,1,2, ...
+# mappings is a mapping from original superpixel label to relabeled ones and vice versa
+print 'relabel segment labels...'
+segs,label_mappings = relabel(sp_label) 
+
+
+edges = loadmat("%s/edges/%s.mat" % (data_dir,name))['edges'] # results of structured edge detector (ICCV2013)
+flow_edges = loadmat("%s/flow_edges/%s.mat" % (data_dir,name))['boundaryMaps'] # flow edge
+
+# path here refers to each tsp trajectory
+print 'load precomputed TSP trajectories...'
 import cPickle 
 with open("%s/trajs/%s.pickle" % (data_dir,name) ) as f:
-    paths = cPickle.load(f)
+    paths = cPickle.load(f) # see path.py
 
 ######## Diffusion ##########
 
 #from diffusion import diffuse_inprob
-inratios = loadmat("%s/inprobs/%s.mat" % (data_dir,name))['inRatios']
+print 'Diffusion...'
+inprobs = loadmat("%s/inprobs/%s.mat" % (data_dir,name))['inRatios']
 from diffusion import diffuse_inprob
-diffused_ratio,diffused_image = diffuse_inprob(inratios, paths, segs,imgs)
+diffused_prob,diffused_image = diffuse_inprob(inprobs, paths, segs,imgs)
 
 ###### Random forest ########
+print 'Random Forest...'
+# see my thesis, p.14
+# prepare training data based on diffused prob.
 
 data = []
 all_data = []
@@ -342,11 +339,11 @@ for (i,id) in enumerate(paths.keys()):
         mean_rgb = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
 
         all_data.append(mean_rgb)
-        inratio = diffused_image[rows[frame == f][0], cols[frame == f][0], f]
-        if inratio > bin_edges[f][5]:
+        inprob = diffused_image[rows[frame == f][0], cols[frame == f][0], f]
+        if inprob > bin_edges[f][5]:
             data.append(mean_rgb)
             lbl.append(0)
-        elif inratio < bin_edges[f][1]:
+        elif inprob < bin_edges[f][1]:
             data.append(mean_rgb)
             lbl.append(1)
     
@@ -358,6 +355,8 @@ forest = RandomForestClassifier(20)
 forest.fit(data,labels)
 
 ####### Segment long trajs #######
+# Gather longer paths (more than 5 frame) and segment them first.
+
 long_paths = {}
 len_thres = 5
 loc_long = {}
@@ -368,22 +367,25 @@ for (i,id) in enumerate(paths.keys()):
 
 n_paths = len(long_paths)
 
-id_mapping = {}
-id_mapping2 = {}
+id2ind = {}
+ind2id = {}
 
 for (i,id) in enumerate(long_paths.keys()):
-    id_mapping[id] = i
-    id_mapping2[i] = id
+    id2ind[id] = i
+    ind2id[i] = id
 
 ######### Unary ###########
+
+# Compute unary potetential of paths by averaging superpixel unary
     
 locprior =loadmat("%s/locprior/%s.mat" % (data_dir,name))['locationUnaries']
 loc_unary = -np.log(locprior+1e-7)
-p_u, p_u_forest,_ = path_unary(frames, segs, sp_label, loc_unary, mappings, long_paths,forest,forest)
+p_u, p_u_forest,_ = path_unary(frames, segs,loc_unary, label_mappings, long_paths,forest,forest) #second forest is dummy
 
 
-######### Pairwise #######        
-flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges, flow_edges,long_paths)
+######### Pairwise #######
+# Compute color edge distance and flow edge distance between neighboring trajectories.
+edge_dists, flow_edge_dists,edge_length  = path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,long_paths)
 
 row_index = []
 col_index = []
@@ -423,7 +425,6 @@ PE = np.zeros((len(source), 6))
 
 param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
 potts_weight = param[name]
-
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
@@ -432,12 +433,10 @@ PE[:,4] = np.array(aff)* potts_weight
 loc_weight = 1
 
 unary = loc_weight * p_u + p_u_forest
-savemat('energy.mat', {'UE': unary.transpose(), 'PE':PE})
 
 ######### Optimize ##########
 
-lsa_path = "external/LSA/"
-mask,labels =  segment(frames, p_u, source, target, aff, segs,long_paths, lsa_path)
+mask,labels =  optimize_lsa(unary, PE, segs,long_paths)
 
 ########## Reestimate unary ###########    
 data = []
@@ -470,14 +469,14 @@ from sklearn.ensemble import RandomForestClassifier
 forest2 = RandomForestClassifier(20)
 forest2.fit(data,labels)
 
-id_mapping = {}
-id_mapping2 = {}
+id2ind = {}
+ind2id = {}
 for (i,id) in enumerate(paths.keys()):
-    id_mapping[id] = i
-    id_mapping2[i] = id
+    id2ind[id] = i
+    ind2id[i] = id
 
 n_paths = len(paths)    
-flow_dists, edge_dists, flow_edge_dists,color_dists,edge_length,n_overlap  = path_neighbors(sp_label, n_paths, id_mapping, id_mapping2, edges,flow_edges, paths)
+edge_dists, flow_edge_dists,edge_length = path_neighbors(sp_label, n_paths, id2ind, ind2id, edges,flow_edges, paths)
 
 row_index = []
 col_index = []
@@ -513,7 +512,7 @@ for i in range(n_paths):
 for (s,t,a) in zip(source, target, aff):
     aff_dict[s][t] = a   
 
-new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs, sp_label, loc_unary, mappings, paths,forest, forest2)
+new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs,loc_unary, label_mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
 param = {"bmx":0.5, "girl":1, "hummingbird":0.1, "soldier":0.1}
@@ -529,9 +528,7 @@ w2 = {"bmx":2, "girl":0.5, "hummingbird":0.5, "soldier":1}
 w3 = {"bmx":2, "girl":1.5, "hummingbird":1.5, "soldier":2}
 u = w1[name] * new_p_u + w2[name] * new_p_u_forest + w3[name] *p_u_forest
 
-savemat('energy.mat', {'UE':u.transpose(), 'PE':PE})
-
-new_mask, labeling = segment(frames, u, source, target, aff, segs,paths,lsa_path)
+new_mask,labeling =  optimize_lsa(u, PE,segs, paths)
 
 n = len(new_mask)
 r,c = new_mask[0].shape
@@ -568,7 +565,6 @@ if len(gt) > 1:
     for i in range(1,len(gt)):
         for j in range(len(gt[i])):
             g[j] += gt[i][j]
-
 
 res = []
 for i in range(len(g)-1):
