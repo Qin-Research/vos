@@ -40,8 +40,7 @@ class Path:
             imshow(alpha_composite(im, mask_to_rgb(mask, (0,255,0))), cmap=gray())
             show()
 
-def get_paths():                        
-    name = 'girl'
+def get_paths(name):                        
     imdir = 'data/rgb/%s/' % name
     vx = loadmat('data/flow/%s/vx.mat' % name)['vx']
     vy = loadmat('data/flow/%s/vy.mat' % name)['vy']
@@ -62,7 +61,7 @@ def get_paths():
         paths[id] =  Path(n, rows, cols, frame, imgs, vx, vy)
         
     from cPickle import dump
-    with open('paths_%s.pickle' % name, 'w') as f:
+    with open('data/trajs/paths_%s.pickle' % name, 'w') as f:
         dump(paths,f)
 
     return paths

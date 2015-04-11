@@ -12,8 +12,8 @@ import matplotlib.animation as animation
 from bidict import bidict
 from joblib import Parallel, delayed
 
-ldof_cpu = "/home/masa/research/flow/pami2010LibLinux64/demo_ldof"
-color_flow = '/home/masa/research/code/flow_util/color_flow'
+ldof_cpu = "external/pami2010LibLinux64/demo_ldof"
+color_flow = 'externel/flow_util/color_flow'
 segtrackv2_dir = "data/SegTrackv2/"
 
 def alpha_composite(img, mask, alpha=0.5):
@@ -154,9 +154,9 @@ def get_flow(im1, im2):
     for f in [tmp1, tmp2, tmp3, tmp4, tmp5]:
         os.remove(f)
     return flow, flow_img
-
     
-def flow_dir(dir_name):
+def flow_dir(name):
+    dir_name = 'data/rgb/' + name
     f_names = [os.path.join(dir_name, f) for f in os.listdir(dir_name)]
     f_names = sorted(f_names)
 
@@ -169,7 +169,7 @@ def flow_dir(dir_name):
         im1 = imread(cur)
         im2 = imread(nxt)
 
-        flow,img = deep_flow(im1,im2)
+        flow,img = get_flow(im1,im2)
         imsave("%05d.flo.color.png" % i, img)
         vx[:,:,i] = flow[:,:,0]
         vy[:,:,i] = flow[:,:,1]
@@ -182,8 +182,12 @@ def flow_dir(dir_name):
         cur = nxt
 
     from scipy.io import savemat
-    savemat("vx.mat", {'vx':vx})        
-    savemat("vy.mat", {'vy':vy})        
+    import os
+    
+    if not os.paths.exists('data/flow/' + name): os.mkdir('data/flow/' + name)
+        
+    savemat("data/flow/%s/vx.mat" % name, {'vx':vx})        
+    savemat("data/flow/%s/vy.mat" % name, {'vy':vy})        
         
 def make_video(dir_name, save_file=None):
     imgs = get_frames(dir_name)
@@ -218,8 +222,6 @@ def save_frames(frames):
         n = i+1
 #        f = resize(f, (160,240,3))
         imsave("%05d.png" % n, f)
-
-
 
 def get_segtrack_gt(name):
     with open(os.path.join(segtrackv2_dir, "ImageSets", name+".txt")) as f:
@@ -273,7 +275,6 @@ def get_sp_adj(seg):
                 
     return adj
 
-
 def relabel_job(sp_label):
     count = 0
     r,c = sp_label.shape
@@ -299,7 +300,6 @@ def relabel(sp_label):
     segs,mappings = zip(*r)
     
     return segs, mappings
-    
     
 def compute_ap(gt, pred):
     score = 0

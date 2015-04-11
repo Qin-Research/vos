@@ -14,7 +14,7 @@ from path import Path
 from scipy.sparse import csr_matrix, spdiags
 from scipy.io import savemat
 
-def plot_value(paths, sp_label, values,cm):
+def plot_paths_value(paths, sp_label, values,cm):
 
     val = np.zeros(sp_label.shape)
     for (i,id) in enumerate(paths.keys()):
@@ -124,6 +124,7 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
                     edge_len[i][a] = edge_length[i][a]
 
     return edge_dists, flow_edge_dists, edge_len
+
                        
 def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refined_forest):
     n_paths = len(paths)
@@ -198,57 +199,6 @@ def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refi
 
     return unary, unary_forest,unary_forest2
 
-def plot_affinity(affinity, frames, sp_label, paths, id2ind, ind2id):
-
-    r,c,n_frame = sp_label.shape
-    aff = np.ones((r,c,n_frame)) * inf
-
-    for k in range(n_frame):
-        for j in range(c):
-            for i in range(r):
-               l = sp_label[i,j,k]
-               index = id2ind[l]
-               
-               if i > 0:
-                   ll = sp_label[i-1,j,k]
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id2ind[ll]]
-
-               if i < sp_label.shape[0]-1:
-                   ll = sp_label[i+1,j,k]
-
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id2ind[ll]]                       
-                       
-               if j > 0:
-                   ll = sp_label[i,j-1,k]
-
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id2ind[ll]]                       
-                                              
-               if j < sp_label.shape[1] -1:
-                   ll = sp_label[i,j+1,k]
-
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id2ind[ll]]                       
-
-    for i in range(sp_label.shape[2]):
-
-        figure(figsize(21,18))
-        im = imread(frames[i])
-
-        subplot(1,2,1)
-        imshow(im)
-        axis("off")
-
-        subplot(1,2,2)
-        imshow(aff[:,:,i],jet())
-        axis("off")
-        colorbar()
-
-        show()
-                                       
-    return aff
           
 def optimize_lsa(unary,pairwise, segs,paths):
 
@@ -265,7 +215,7 @@ def optimize_lsa(unary,pairwise, segs,paths):
         if labels[i][0] == 0:
             mask_label[path.rows, path.cols, path.frame] = 1
         else:
-            mask_label[path.rows, path.cols, path.frame] = 0            
+mask_label[path.rows, path.cols, path.frame] = 0            
             
     for j in range(len(segs)):
         mask.append(mask_label[:,:,j])
@@ -294,7 +244,6 @@ sp_label = loadmat(sp_file)['sp_labels'][:,:,:-1] #ignore the last frame (no opt
 print 'relabel segment labels...'
 segs,label_mappings = relabel(sp_label) 
 
-
 edges = loadmat("%s/edges/%s.mat" % (data_dir,name))['edges'] # results of structured edge detector (ICCV2013)
 flow_edges = loadmat("%s/flow_edges/%s.mat" % (data_dir,name))['boundaryMaps'] # flow edge
 
@@ -317,10 +266,8 @@ print 'Random Forest...'
 # see my thesis, p.14
 # prepare training data based on diffused prob.
 
-data = []
-all_data = []
+mean_rgbs = []
 lbl = []
-ims = imgs
 
 bin_edges = []    
 for i in range(diffused_image.shape[2]):
@@ -335,24 +282,23 @@ for (i,id) in enumerate(paths.keys()):
     unique_frame = np.unique(frame)
 
     for (j,f) in enumerate(unique_frame):
-        im = ims[f]
+        im = imgs[f]
         mean_rgb = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
 
-        all_data.append(mean_rgb)
         inprob = diffused_image[rows[frame == f][0], cols[frame == f][0], f]
         if inprob > bin_edges[f][5]:
-            data.append(mean_rgb)
+            mean_rgbs.append(mean_rgb)
             lbl.append(0)
         elif inprob < bin_edges[f][1]:
-            data.append(mean_rgb)
+            mean_rgbs.append(mean_rgb)
             lbl.append(1)
     
-data = np.vstack(data)
+mean_rgbs = np.vstack(mean_rgbs)
 labels = np.array(lbl)        
 
 from sklearn.ensemble import RandomForestClassifier
 forest = RandomForestClassifier(20)
-forest.fit(data,labels)
+forest.fit(mean_rgbs,labels)
 
 ####### Segment long trajs #######
 # Gather longer paths (more than 5 frame) and segment them first.
@@ -380,7 +326,7 @@ for (i,id) in enumerate(long_paths.keys()):
     
 locprior =loadmat("%s/locprior/%s.mat" % (data_dir,name))['locationUnaries']
 loc_unary = -np.log(locprior+1e-7)
-p_u, p_u_forest,_ = path_unary(frames, segs,loc_unary, label_mappings, long_paths,forest,forest) #second forest is dummy
+unary_loc, unary_forest,_ = path_unary(frames, segs,loc_unary, label_mappings, long_paths,forest,forest) #second forest is dummy
 
 
 ######### Pairwise #######
@@ -432,7 +378,7 @@ PE[:,4] = np.array(aff)* potts_weight
 
 loc_weight = 1
 
-unary = loc_weight * p_u + p_u_forest
+unary = loc_weight * unary_loc + unary_forest
 
 ######### Optimize ##########
 
@@ -442,9 +388,6 @@ mask,labels =  optimize_lsa(unary, PE, segs,long_paths)
 data = []
 lbl = []
 
-ims = []
-for f in frames: ims.append(img_as_ubyte(imread(f))        )
-
 for (i,id) in enumerate(long_paths.keys()):
     frame = long_paths[id].frame
     rows = long_paths[id].rows
@@ -453,7 +396,7 @@ for (i,id) in enumerate(long_paths.keys()):
     unique_frame = np.unique(frame)
     mean_rgbs = np.zeros((len(unique_frame),3))
     for (j,f) in enumerate(unique_frame):
-        im = ims[f]
+        im = imgs[f]
         mean_rgbs[j] = np.mean(im[rows[frame == f], cols[frame == f]], axis=0)
 
     data.append(mean_rgbs)        
@@ -468,6 +411,8 @@ labels = np.concatenate(lbl)
 from sklearn.ensemble import RandomForestClassifier
 forest2 = RandomForestClassifier(20)
 forest2.fit(data,labels)
+
+### Segment all trajectories ###
 
 id2ind = {}
 ind2id = {}
@@ -505,14 +450,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
         target.append(c)
         aff.append(a)
 
-aff_dict = []
-for i in range(n_paths):
-    aff_dict.append({})
-
-for (s,t,a) in zip(source, target, aff):
-    aff_dict[s][t] = a   
-
-new_p_u, p_u_forest, new_p_u_forest = path_unary(frames, segs,loc_unary, label_mappings, paths,forest, forest2)
+unary_loc, unary_forest, unary_forest_refined = path_unary(frames, segs,loc_unary, label_mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
 param = {"bmx":0.5, "girl":1, "hummingbird":0.1, "soldier":0.1}
@@ -522,11 +460,10 @@ PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-loc_weight = 0.5
 w1 = {"bmx":0.5, "girl":0.5, "hummingbird":0.5, "soldier":0.5}
 w2 = {"bmx":2, "girl":0.5, "hummingbird":0.5, "soldier":1}
 w3 = {"bmx":2, "girl":1.5, "hummingbird":1.5, "soldier":2}
-u = w1[name] * new_p_u + w2[name] * new_p_u_forest + w3[name] *p_u_forest
+u = w1[name] * unary_loc + w2[name] * unary_forest + w3[name] * unary_forest_refined
 
 new_mask,labeling =  optimize_lsa(u, PE,segs, paths)
 
@@ -569,11 +506,14 @@ if len(gt) > 1:
 res = []
 for i in range(len(g)-1):
 
-#    figure(figsize(15,12))
+    figure(figsize(15,12))
     result = np.ones((r,c,3), dtype=ubyte) * 125
     rs,cs = np.nonzero(new_mask[i] == 1)
 #    rs,cs = np.nonzero(g[i] == 1)
     result[rs,cs] = imgs[i][rs,cs]
     res.append(np.hstack((imgs[i],result)))
+    imshow(res[-1])
+    axis('off')
+    show()
 
-print compute_ap(g, new_mask)
+print "Average precision score:", compute_ap(g, new_mask)
