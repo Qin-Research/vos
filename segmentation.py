@@ -14,6 +14,36 @@ from path import Path
 from scipy.sparse import csr_matrix, spdiags
 from scipy.io import savemat
 
+def struct_edge_detect(name):
+    savemat('name.mat', {'name':name})
+    os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/edge_dir.m");
+    
+    edges = loadmat('edges.mat')['edges']
+    return edges
+
+def compute_flow_edge(name):
+    savemat('name.mat', {'name':name})
+    os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/flow_edge.m");
+    
+    edges = loadmat('flow_edges.mat')['boundaryMaps']
+    return edges
+
+def compute_inprob(name,segs):
+    savemat('name.mat', {'name':name})
+    n = len(segs)
+    r,c = segs[0].shape
+    sp = np.zeros((r,c,n),dtype=np.int)
+    for i in range(n): sp[:,:,i] = segs[i]
+
+    savemat('sp.mat', {'superpixels':sp})
+    os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/inprobs.m");
+    
+    inprobs = loadmat('inprobs.mat')['inRatios']
+    return inprobs
+
+def compute_locprior(name):
+    pass
+        
 def plot_paths_value(paths, sp_label, values,cm):
 
     val = np.zeros(sp_label.shape)
@@ -203,8 +233,7 @@ def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refi
 def optimize_lsa(unary,pairwise, segs,paths):
 
     savemat('energy.mat', {'UE': unary.transpose(), 'PE':pairwise})    
-    lsa_path = "external/LSA/"
-    os.system("matlab -nodisplay -nojvm -nosplash < %s/optimize.m" % lsa_path);
+    os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/optimize.m");
     labels = loadmat('labeling.mat')['labels']
     count = 0
     mask = []
@@ -215,7 +244,7 @@ def optimize_lsa(unary,pairwise, segs,paths):
         if labels[i][0] == 0:
             mask_label[path.rows, path.cols, path.frame] = 1
         else:
-mask_label[path.rows, path.cols, path.frame] = 0            
+            mask_label[path.rows, path.cols, path.frame] = 0            
             
     for j in range(len(segs)):
         mask.append(mask_label[:,:,j])
@@ -228,10 +257,12 @@ name = 'soldier'
 #name = 'girl'
 #name = 'hummingbird'
 
+### load required precomputed data ###
 data_dir = "data"
 imdir = "%s/rgb/%s/" % (data_dir,name)
 
-frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")]
+frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")][:-1] #ignore the last frame (no optical flow available)
+
 imgs = [img_as_ubyte(imread(f)) for f in frames]
         
 sp_file = "%s/tsp/%s.mat" % (data_dir,name)
@@ -242,10 +273,7 @@ sp_label = loadmat(sp_file)['sp_labels'][:,:,:-1] #ignore the last frame (no opt
 # relabel segment labels to 0,1,2, ...
 # mappings is a mapping from original superpixel label to relabeled ones and vice versa
 print 'relabel segment labels...'
-segs,label_mappings = relabel(sp_label) 
-
-edges = loadmat("%s/edges/%s.mat" % (data_dir,name))['edges'] # results of structured edge detector (ICCV2013)
-flow_edges = loadmat("%s/flow_edges/%s.mat" % (data_dir,name))['boundaryMaps'] # flow edge
+segs,label_mappings = relabel(sp_label)
 
 # path here refers to each tsp trajectory
 print 'load precomputed TSP trajectories...'
@@ -253,11 +281,20 @@ import cPickle
 with open("%s/trajs/%s.pickle" % (data_dir,name) ) as f:
     paths = cPickle.load(f) # see path.py
 
+
+### Compute color and flow edges ###     
+edges = struct_edge_detect(name) # structured forest edge detector (Dollar et al. ICCV2013)
+
+flow_edges = compute_flow_edge(name) # flow edge
+
+
 ######## Diffusion ##########
 
 #from diffusion import diffuse_inprob
 print 'Diffusion...'
-inprobs = loadmat("%s/inprobs/%s.mat" % (data_dir,name))['inRatios']
+#inprobs = loadmat("%s/inprobs/%s.mat" % (data_dir,name))['inRatios']
+inprobs = compute_inprobs(name, segs)
+
 from diffusion import diffuse_inprob
 diffused_prob,diffused_image = diffuse_inprob(inprobs, paths, segs,imgs)
 
@@ -324,7 +361,8 @@ for (i,id) in enumerate(long_paths.keys()):
 
 # Compute unary potetential of paths by averaging superpixel unary
     
-locprior =loadmat("%s/locprior/%s.mat" % (data_dir,name))['locationUnaries']
+#locprior =loadmat("%s/locprior/%s.mat" % (data_dir,name))['locationUnaries']
+locprior = compute_locprior(name)
 loc_unary = -np.log(locprior+1e-7)
 unary_loc, unary_forest,_ = path_unary(frames, segs,loc_unary, label_mappings, long_paths,forest,forest) #second forest is dummy
 
@@ -517,3 +555,5 @@ for i in range(len(g)-1):
     show()
 
 print "Average precision score:", compute_ap(g, new_mask)
+
+os.system('rm *.mat')
