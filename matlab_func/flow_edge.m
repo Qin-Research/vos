@@ -1,5 +1,7 @@
 load name.mat
 addpath(genpath('external/FastVideoSegment/'))
+%addpath('modified')
+addpath('matlab_func/modified')
 flow_file = ['flow_' name '.mat'];
 load(flow_file)
 
@@ -12,7 +14,7 @@ load(flow_file)
     boundaryMaps = zeros(height,width,frames);
 
     for( frame = 1: frames )
-        boundaryMap = getProbabilityEdge( flow{ frame }, 3 );
+        boundaryMap = prob_edge( flow{ frame }, 3 );
 	boundaryMaps(:,:,frame) = boundaryMap;
     end
 

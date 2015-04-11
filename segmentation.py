@@ -41,9 +41,21 @@ def compute_inprob(name,segs):
     inprobs = loadmat('inprobs.mat')['inRatios']
     return inprobs
 
-def compute_locprior(name):
-    pass
-        
+def compute_locprior(name, segs, diffused_prob):
+    savemat('name.mat', {'name':name})
+    n = len(segs)
+    r,c = segs[0].shape
+    sp = np.zeros((r,c,n),dtype=np.int)
+    for i in range(n): sp[:,:,i] = segs[i]
+
+    savemat('sp.mat', {'superpixels':sp})
+    savemat('diffused.mat', {'diffused_inprobs':diffused_prob})
+    os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/compute_locprior.m");
+    
+    locprior = loadmat('locprior.mat')['locationUnaries']
+    return locprior
+    
+    
 def plot_paths_value(paths, sp_label, values,cm):
 
     val = np.zeros(sp_label.shape)
@@ -64,7 +76,7 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
 
     count =[]
     
-    n_frames = sp_label.shape[2]
+    n_frames = sp_label.shape[2] - 1
 
     edge_dists = []
     flow_edge_dists = []
@@ -168,7 +180,7 @@ def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refi
     mapping = {}
     count = 0
     ims = []
-    for i in range(len(segs)):
+    for i in range(len(segs)-1):
         im = img_as_ubyte(imread(frames[i]))
         ims.append(im)
         uni = np.unique(segs[i])
@@ -238,7 +250,7 @@ def optimize_lsa(unary,pairwise, segs,paths):
     count = 0
     mask = []
     r,c = segs[0].shape
-    mask_label = np.ones((r,c,len(segs))) * 0.5
+    mask_label = np.ones((r,c,len(segs)-1)) * 0.5
 
     for (i,path) in enumerate(paths.values()):
         if labels[i][0] == 0:
@@ -246,29 +258,29 @@ def optimize_lsa(unary,pairwise, segs,paths):
         else:
             mask_label[path.rows, path.cols, path.frame] = 0            
             
-    for j in range(len(segs)):
+    for j in range(len(segs)-1):
         mask.append(mask_label[:,:,j])
     
     return mask,labels
 
 ### which video to segment ###
-name = 'soldier'
+#name = 'soldier'
 #name = 'bmx'
 #name = 'girl'
-#name = 'hummingbird'
+name = 'hummingbird'
 
 ### load required precomputed data ###
 data_dir = "data"
 imdir = "%s/rgb/%s/" % (data_dir,name)
 
-frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")][:-1] #ignore the last frame (no optical flow available)
+frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")] 
 
 imgs = [img_as_ubyte(imread(f)) for f in frames]
         
 sp_file = "%s/tsp/%s.mat" % (data_dir,name)
 
 #load precomputed temporal superpixels (tsp)
-sp_label = loadmat(sp_file)['sp_labels'][:,:,:-1] #ignore the last frame (no optical flow available)
+sp_label = loadmat(sp_file)['sp_labels']
 
 # relabel segment labels to 0,1,2, ...
 # mappings is a mapping from original superpixel label to relabeled ones and vice versa
@@ -292,8 +304,8 @@ flow_edges = compute_flow_edge(name) # flow edge
 
 #from diffusion import diffuse_inprob
 print 'Diffusion...'
-#inprobs = loadmat("%s/inprobs/%s.mat" % (data_dir,name))['inRatios']
-inprobs = compute_inprobs(name, segs)
+
+inprobs = compute_inprob(name, segs)
 
 from diffusion import diffuse_inprob
 diffused_prob,diffused_image = diffuse_inprob(inprobs, paths, segs,imgs)
@@ -360,9 +372,8 @@ for (i,id) in enumerate(long_paths.keys()):
 ######### Unary ###########
 
 # Compute unary potetential of paths by averaging superpixel unary
-    
-#locprior =loadmat("%s/locprior/%s.mat" % (data_dir,name))['locationUnaries']
-locprior = compute_locprior(name)
+
+locprior = compute_locprior(name, segs, diffused_prob)
 loc_unary = -np.log(locprior+1e-7)
 unary_loc, unary_forest,_ = path_unary(frames, segs,loc_unary, label_mappings, long_paths,forest,forest) #second forest is dummy
 

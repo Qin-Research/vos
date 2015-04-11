@@ -3,8 +3,9 @@ addpath(genpath('external/FastVideoSegment/'))
 flow_file = ['flow_' name '.mat'];
 load(flow_file)
 load sp.mat
-
-frames = size(superpixels,3);
+%addpath('modified')
+addpath('matlab_func/modified')
+frames = size(superpixels,3) - 1;
 sp = cell(frames, 1);
 
 for i =1:frames
@@ -19,7 +20,7 @@ end
         inmaps(:,:,i) = inmaps2{i};
     end
 
-    inRatios = getSuperpixelInRatio2(sp, inMaps );
+    inRatios = sp_inratio(sp, inMaps );
 
     save inprobs.mat inRatios 
     

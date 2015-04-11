@@ -69,7 +69,7 @@ def diffuse_inprob(inprobs,paths, segs, imgs):
                 dist.append(d)
     
     adjs = []            
-    for f in range(len(segs)):
+    for f in range(len(segs)-1):
         adjs.append(get_sp_adj(segs[f]))
         
     for i in range(n_frames-1):
