@@ -35,22 +35,22 @@ end
         locationMasks / ( locationNorm * max( locationMasks ) );
     locationUnaries( locationUnaries > 0.95 ) = 0.999;
     
-    for( frame = 1: frames )
-        start = bounds( frame );
-        stop = bounds( frame + 1 ) - 1;
-        
-        frameMasks = locationUnaries( start: stop, 1 );
-        overThres = sum( frameMasks > 0.6 ) / single( ( stop - start ) );
-
-        if( overThres < 0.05 )
-            E = 0.005;
-        else
-            E = 0.000;
-        end
-        locationUnaries( start: stop, 1 ) = ...
-            max( locationUnaries( start: stop, 1 ), E );
-        
-    end
-    locationUnaries( :, 2 ) = 1 - locationUnaries( :, 1 );
+%    for( frame = 1: frames )
+%        start = bounds( frame );
+%        stop = bounds( frame + 1 ) - 1;
+%        
+%        frameMasks = locationUnaries( start: stop, 1 );
+%        overThres = sum( frameMasks > 0.6 ) / single( ( stop - start ) );
+%
+%        if( overThres < 0.05 )
+%            E = 0.005;
+%        else
+%            E = 0.000;
+%        end
+%        locationUnaries( start: stop, 1 ) = ...
+%            max( locationUnaries( start: stop, 1 ), E );
+%        
+%    end
+%    locationUnaries( :, 2 ) = 1 - locationUnaries( :, 1 );
    
     save locprior.mat locationUnaries;

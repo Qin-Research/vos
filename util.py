@@ -280,7 +280,7 @@ def relabel_job(sp_label):
     r,c = sp_label.shape
     seg = np.zeros((r,c),dtype=np.int)
     mapping = bidict()
-
+    
     for y in range(r):
         for x in range(c):
             l = sp_label[y,x]

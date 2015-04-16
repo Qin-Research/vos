@@ -20,7 +20,7 @@ class Path:
     # z coordinate is frame index
     # For example, the first pixel's coordinate (x,y,z) is (rows[0], cols[0], frame[0])
     
-    def __init__(self, id, rows, cols, frame, imgs, vx, vy):
+    def __init__(self, id, rows, cols, frame):
         self.id = id #superpixel label
         self.rows = rows # row index 
         self.cols = cols # col index
@@ -41,14 +41,7 @@ class Path:
             show()
 
 def get_paths(name):                        
-    imdir = 'data/rgb/%s/' % name
-    vx = loadmat('data/flow/%s/vx.mat' % name)['vx']
-    vy = loadmat('data/flow/%s/vy.mat' % name)['vy']
     
-    frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")]
-    imgs = [img_as_ubyte(imread(f)) for f in frames]
-            
-    from skimage.filter import vsobel,hsobel
     sp_file = "data/tsp/%s.mat" % name
     sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
             
@@ -58,7 +51,7 @@ def get_paths(name):
     for (i,id) in enumerate(n):
         mask = sp_label == id
         rows, cols, frame = np.nonzero(mask)
-        paths[id] =  Path(n, rows, cols, frame, imgs, vx, vy)
+        paths[id] =  Path(n, rows, cols, frame)
         
     from cPickle import dump
     with open('data/trajs/paths_%s.pickle' % name, 'w') as f:

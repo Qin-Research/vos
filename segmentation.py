@@ -265,9 +265,9 @@ def optimize_lsa(unary,pairwise, segs,paths):
 
 ### which video to segment ###
 #name = 'soldier'
-#name = 'bmx'
+name = 'bmx'
 #name = 'girl'
-name = 'hummingbird'
+#name = 'hummingbird'
 
 ### load required precomputed data ###
 data_dir = "data"
@@ -293,12 +293,10 @@ import cPickle
 with open("%s/trajs/%s.pickle" % (data_dir,name) ) as f:
     paths = cPickle.load(f) # see path.py
 
-
 ### Compute color and flow edges ###     
 edges = struct_edge_detect(name) # structured forest edge detector (Dollar et al. ICCV2013)
 
 flow_edges = compute_flow_edge(name) # flow edge
-
 
 ######## Diffusion ##########
 
@@ -307,8 +305,31 @@ print 'Diffusion...'
 
 inprobs = compute_inprob(name, segs)
 
+
 from diffusion import diffuse_inprob
 diffused_prob,diffused_image = diffuse_inprob(inprobs, paths, segs,imgs)
+
+inprob_image = np.zeros(diffused_image.shape)
+
+id2index = []
+index = 0
+for i in range(len(inprobs)):
+    id2index.append({})
+    for (jj,j) in enumerate(inprobs[i][0]):
+        id2index[i][jj] = index
+        index += 1
+
+for (i,id) in enumerate(paths.keys()):
+    frame = paths[id].frame
+    rows = paths[id].rows
+    cols = paths[id].cols
+
+    unique_frame = np.unique(frame)
+
+    for f in unique_frame:
+        r = rows[frame == f]
+        c = cols[frame == f]
+        inprob_image[r,c,f] = inprobs[f][0][segs[f][r[0],c[0]]]
 
 ###### Random forest ########
 print 'Random Forest...'
@@ -346,7 +367,7 @@ mean_rgbs = np.vstack(mean_rgbs)
 labels = np.array(lbl)        
 
 from sklearn.ensemble import RandomForestClassifier
-forest = RandomForestClassifier(20)
+forest = RandomForestClassifier(20,n_jobs=-1)
 forest.fit(mean_rgbs,labels)
 
 ####### Segment long trajs #######
@@ -458,7 +479,7 @@ data = np.vstack(data)
 labels = np.concatenate(lbl)        
 
 from sklearn.ensemble import RandomForestClassifier
-forest2 = RandomForestClassifier(20)
+forest2 = RandomForestClassifier(20,n_jobs=-1)
 forest2.fit(data,labels)
 
 ### Segment all trajectories ###
@@ -502,7 +523,7 @@ for (r,c,a) in zip(row_index, col_index, affinity):
 unary_loc, unary_forest, unary_forest_refined = path_unary(frames, segs,loc_unary, label_mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
-param = {"bmx":0.5, "girl":1, "hummingbird":0.1, "soldier":0.1}
+param = {"bmx":0.5, "girl":1, "hummingbird":1, "soldier":0.01}
 potts_weight = param[name]
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
@@ -510,8 +531,8 @@ PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
 w1 = {"bmx":0.5, "girl":0.5, "hummingbird":0.5, "soldier":0.5}
-w2 = {"bmx":2, "girl":0.5, "hummingbird":0.5, "soldier":1}
-w3 = {"bmx":2, "girl":1.5, "hummingbird":1.5, "soldier":2}
+w2 = {"bmx":2, "girl":0.5, "hummingbird":2, "soldier":3}
+w3 = {"bmx":2, "girl":1.5, "hummingbird":0.5, "soldier":0.5}
 u = w1[name] * unary_loc + w2[name] * unary_forest + w3[name] * unary_forest_refined
 
 new_mask,labeling =  optimize_lsa(u, PE,segs, paths)
@@ -520,28 +541,28 @@ n = len(new_mask)
 r,c = new_mask[0].shape
 m = np.zeros((r,c,n))
 
-for i in range(len(new_mask)):
-    m[:,:,i] = new_mask[i]
-    figure(figsize(21,18))
+# for i in range(len(new_mask)):
+#     m[:,:,i] = new_mask[i]
+#     figure(figsize(21,18))
 
-    im = img_as_ubyte(imread(frames[i]))            
-    subplot(1,4,1)
-    imshow(im)
-    axis("off")
+#     im = img_as_ubyte(imread(frames[i]))            
+#     subplot(1,4,1)
+#     imshow(im)
+#     axis("off")
     
-    subplot(1,4,2)
-    imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
-    axis("off")
+#     subplot(1,4,2)
+#     imshow(alpha_composite(im, mask_to_rgb(mask[i], (0,255,0))),cmap=gray())        
+#     axis("off")
 
-    subplot(1,4,3)
-    imshow(mask[i],gray())
-    axis("off")
+#     subplot(1,4,3)
+#     imshow(mask[i],gray())
+#     axis("off")
 
-    subplot(1,4,4)
-    imshow(alpha_composite(im, mask_to_rgb(new_mask[i], (0,255,0))),cmap=gray())        
-    axis("off")
+#     subplot(1,4,4)
+#     imshow(alpha_composite(im, mask_to_rgb(new_mask[i], (0,255,0))),cmap=gray())        
+#     axis("off")
         
-    show() 
+#     show() 
     
 #################################################################################
 
