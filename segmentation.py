@@ -263,80 +263,6 @@ def optimize_lsa(unary,pairwise, segs,paths):
     
     return mask,labels
 
-def plot_affinity(affinity, frames, sp_label, paths, id_mapping, id_mapping2, row_index, col_index):
-
-    source = []
-    target = []
-    aff = []
-    
-    for (r,c,a) in zip(row_index, col_index, affinity):
-        if r != c:
-            source.append(r)
-            target.append(c)
-            aff.append(a)
-
-    aff_dict = []
-
-    for i in range(n_paths):
-        aff_dict.append({})
-    
-    for (s,t,a) in zip(source, target, aff):
-        aff_dict[s][t] = a   
-
-    affinity = aff_dict
-    
-    r,c,n_frame = sp_label.shape
-    aff = np.ones((r,c,n_frame)) * inf
-
-    for k in range(n_frame -1 ):
-        for j in range(c):
-            for i in range(r):
-               l = sp_label[i,j,k]
-               index = id_mapping[l]
-               
-               if i > 0:
-                   ll = sp_label[i-1,j,k]
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]
-
-               if i < sp_label.shape[0]-1:
-                   ll = sp_label[i+1,j,k]
-
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
-                       
-               if j > 0:
-                   ll = sp_label[i,j-1,k]
-
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
-                                              
-               if j < sp_label.shape[1] -1:
-                   ll = sp_label[i,j+1,k]
-
-                   if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
-
-
-
-    for i in range(sp_label.shape[2]):
-
-        figure(figsize(21,18))
-        im = imread(frames[i])
-
-        subplot(1,2,1)
-        imshow(im)
-        axis("off")
-
-        subplot(1,2,2)
-        imshow(aff[:,:,i],jet())
-        axis("off")
-        colorbar()
-
-        show()
-                                       
-    return aff
-
 ### which video to segment ###
 #name = 'soldier'
 name = 'bmx'
@@ -583,7 +509,6 @@ flow_edge_affinity = func(np.array(flow_edge),lam_flow_edge)
 edge_affinity = func(np.array(edge),lam_edge )
 
 affinity = w_e * edge_affinity + w_f * flow_edge_affinity
-#plot_affinity(edge_affinity, frames, sp_label, paths, id2ind, ind2id, row_index, col_index)
 
 source = []
 target = []
