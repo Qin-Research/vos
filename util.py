@@ -13,7 +13,7 @@ from bidict import bidict
 from joblib import Parallel, delayed
 
 ldof_cpu = "external/pami2010LibLinux64/demo_ldof"
-color_flow = 'externel/flow_util/color_flow'
+color_flow = 'external/flow_util/color_flow'
 segtrackv2_dir = "data/SegTrackv2/"
 
 def alpha_composite(img, mask, alpha=0.5):
@@ -154,8 +154,11 @@ def get_flow(im1, im2):
     for f in [tmp1, tmp2, tmp3, tmp4, tmp5]:
         os.remove(f)
     return flow, flow_img
-    
+
+def o    
 def flow_dir(name):
+    import os
+    
     dir_name = 'data/rgb/' + name
     f_names = [os.path.join(dir_name, f) for f in os.listdir(dir_name)]
     f_names = sorted(f_names)
