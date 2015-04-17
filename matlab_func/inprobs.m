@@ -1,7 +1,20 @@
 load name.mat
 addpath(genpath('external/FastVideoSegment/'))
 flow_file = ['flow_' name '.mat'];
-load(flow_file)
+
+if exist(flow_file,'file') == 2
+ load(flow_file)
+else
+ options.infolder = fullfile('data','rgb', name);
+ options.outfolder = fullfile('data','flow');
+ options.flowmethod = 'broxPAMI2011';
+options.vocal = false; 
+ n_frames = numel(dir([options.infolder '/*.png']));
+ options.ranges = [1, n_frames+1];
+ flow = computeOpticalFlow( options,1);
+ save(flow_file, 'flow');
+end    
+
 load sp.mat
 %addpath('modified')
 addpath('matlab_func/modified')

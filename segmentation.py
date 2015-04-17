@@ -263,9 +263,30 @@ def optimize_lsa(unary,pairwise, segs,paths):
     
     return mask,labels
 
+def load_traj(name):
+    import cPickle
+    import os
+
+    data_dir = 'data'
+    if os.path.exists("%s/trajs/%s.pickle" % (data_dir,name)):
+        with open("%s/trajs/%s.pickle" % (data_dir,name) ) as f:
+            paths = cPickle.load(f) # see path.py
+        
+            return paths
+    else:
+        from path import get_paths
+        paths = get_paths(name)
+        
+        from cPickle import dump
+
+        with open('data/trajs/paths_%s.pickle' % name, 'w') as f:
+             dump(paths,f)
+
+        return paths
+            
 ### which video to segment ###
 #name = 'soldier'
-name = 'bmx'
+name = 'monkey'
 #name = 'girl'
 #name = 'hummingbird'
 
@@ -288,10 +309,8 @@ print 'relabel segment labels...'
 segs,label_mappings = relabel(sp_label)
 
 # path here refers to each tsp trajectory
-print 'load precomputed TSP trajectories...'
-import cPickle 
-with open("%s/trajs/%s.pickle" % (data_dir,name) ) as f:
-    paths = cPickle.load(f) # see path.py
+print 'load precomputed TSP trajectories (or compute if nessesary)...'
+paths = load_traj(name)
 
 ### Compute color and flow edges ###     
 edges = struct_edge_detect(name) # structured forest edge detector (Dollar et al. ICCV2013)
@@ -304,7 +323,6 @@ flow_edges = compute_flow_edge(name) # flow edge
 print 'Diffusion...'
 
 inprobs = compute_inprob(name, segs)
-
 
 from diffusion import diffuse_inprob
 diffused_prob,diffused_image = diffuse_inprob(inprobs, paths, segs,imgs)
