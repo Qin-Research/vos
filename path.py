@@ -13,15 +13,13 @@ from skimage.segmentation import find_boundaries
 from IPython.core.pylabtools import figsize
 from util import *
 
-
-class Path:
+class Trajectory:
     # Trajectory represented as video coordinates (x, y, z) of pixels in it
     # Path is the same as trajectory
     # z coordinate is frame index
     # For example, the first pixel's coordinate (x,y,z) is (rows[0], cols[0], frame[0])
     
-    def __init__(self, id, rows, cols, frame):
-        self.id = id #superpixel label
+    def __init__(self, rows, cols, frame):
         self.rows = rows # row index 
         self.cols = cols # col index
         self.frame = frame # frame index
@@ -43,18 +41,33 @@ class Path:
 def get_paths(name):                        
     
     sp_file = "data/tsp/%s.mat" % name
-    sp_label = loadmat(sp_file)["sp_labels"][:,:,:-1]
+    sp_label = loadmat(sp_file)["sp_labels"]
             
     paths = {}
     n = np.unique(sp_label)            
 
+    height, width, n_frames = sp_label.shape
+
+    from collections import defaultdict
+    rows = defaultdict(list)
+    cols = defaultdict(list)
+    frames = defaultdict(list)
+    
+    for k in range(n_frames):
+        for i in range(height):
+            for j in range(width):
+                l = sp_label[i,j,k]
+                rows[l].append(i)
+                cols[l].append(j)
+                frames[l].append(k)
+                
     for (i,id) in enumerate(n):
-        mask = sp_label == id
-        rows, cols, frame = np.nonzero(mask)
-        paths[id] =  Path(n, rows, cols, frame)
+        # mask = sp_label == id
+        # rows, cols, frame = np.nonzero(mask)
+        paths[id] =  Trajectory(np.array(rows[id]), np.array(cols[id]), np.array(frames[id]))
         
     from cPickle import dump
-    with open('data/trajs/paths_%s.pickle' % name, 'w') as f:
+    with open('data/trajs/%s.pickle' % name, 'w') as f:
         dump(paths,f)
 
     return paths

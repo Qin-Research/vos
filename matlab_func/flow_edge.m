@@ -14,7 +14,7 @@ options.vocal = false;
  n_frames = numel(dir([options.infolder '/*.png']));
  options.ranges = [1, n_frames+1];
  flow = computeOpticalFlow( options,1);
- save(flow_file, flow);
+ save(flow_file, 'flow');
 
  movefile(flow_file, 'external/FastVideoSegment');
 end    
@@ -32,4 +32,4 @@ end
 	boundaryMaps(:,:,frame) = boundaryMap;
     end
 
-save 'flow_edges.mat' boundaryMaps;    
+save(['flow_edges_' name '.mat'], 'boundaryMaps');    

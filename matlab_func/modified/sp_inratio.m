@@ -21,7 +21,7 @@
 
 function output = sp_inratio( superpixels, inMaps )
 
-    frames = length( superpixels );
+    frames = length( superpixels )-1;
     output = cell( frames, 1 );
     for( frame = 1: frames )
 

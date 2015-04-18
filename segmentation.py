@@ -1,6 +1,8 @@
 from pylab import *
 import numpy as np
 from sys import argv
+import sys
+#from sys.stdout import flush 
 from time import time
 import os
 from skimage import img_as_ubyte
@@ -10,7 +12,7 @@ from skimage.color import rgb2gray,rgb2lab
 from skimage.feature import hog
 from IPython.core.pylabtools import figsize
 from util import *
-from path import Path
+from path import Trajectory
 from scipy.sparse import csr_matrix, spdiags
 from scipy.io import savemat
 
@@ -18,14 +20,14 @@ def struct_edge_detect(name):
     savemat('name.mat', {'name':name})
     os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/edge_dir.m");
     
-    edges = loadmat('edges.mat')['edges']
+    edges = loadmat('edges_%s.mat' % name)['edges']
     return edges
 
 def compute_flow_edge(name):
     savemat('name.mat', {'name':name})
     os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/flow_edge.m");
     
-    edges = loadmat('flow_edges.mat')['boundaryMaps']
+    edges = loadmat('flow_edges_%s.mat' % name)['boundaryMaps']
     return edges
 
 def compute_inprob(name,segs):
@@ -35,10 +37,10 @@ def compute_inprob(name,segs):
     sp = np.zeros((r,c,n),dtype=np.int)
     for i in range(n): sp[:,:,i] = segs[i]
 
-    savemat('sp.mat', {'superpixels':sp})
+    savemat('sp_%s.mat' % name, {'superpixels':sp})
     os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/inprobs.m");
     
-    inprobs = loadmat('inprobs.mat')['inRatios']
+    inprobs = loadmat('inprobs_%s.mat' % name)['inRatios']
     return inprobs
 
 def compute_locprior(name, segs, diffused_prob):
@@ -48,11 +50,11 @@ def compute_locprior(name, segs, diffused_prob):
     sp = np.zeros((r,c,n),dtype=np.int)
     for i in range(n): sp[:,:,i] = segs[i]
 
-    savemat('sp.mat', {'superpixels':sp})
-    savemat('diffused.mat', {'diffused_inprobs':diffused_prob})
+    savemat('sp_%s.mat' % name, {'superpixels':sp})
+    savemat('diffused_%s.mat' % name, {'diffused_inprobs':diffused_prob})
     os.system("matlab -nodisplay -nojvm -nosplash < matlab_func/compute_locprior.m");
     
-    locprior = loadmat('locprior.mat')['locationUnaries']
+    locprior = loadmat('locprior_%s.mat' % name)['locationUnaries']
     return locprior
     
     
@@ -76,7 +78,7 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
 
     count =[]
     
-    n_frames = sp_label.shape[2] - 1
+    n_frames = sp_label.shape[2]
 
     edge_dists = []
     flow_edge_dists = []
@@ -88,7 +90,7 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
         flow_edge_dists.append(defaultdict(float))
         edge_len.append(defaultdict(int))
         
-    for k in range(n_frames):
+    for k in range(n_frames-1):
         edge_dists_buf = []
         flow_edge_dists_buf = []
         edge_length = []
@@ -171,7 +173,7 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
 def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refined_forest):
     n_paths = len(paths)
 
-    n_frames = len(frames)-1
+    n_frames = len(frames)
 
     id2ind = {}
     for (i,id) in enumerate(paths.keys()):
@@ -180,8 +182,8 @@ def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refi
     mapping = {}
     count = 0
     ims = []
-    for i in range(len(segs)-1):
-        im = img_as_ubyte(imread(frames[i]))
+    for i in range(len(segs)):
+        im = img_as_ubyte(imread(frames[i]))[:,:,:3]
         ims.append(im)
         uni = np.unique(segs[i])
         for j in uni:
@@ -207,7 +209,6 @@ def path_unary(frames, segs, sp_unary, label_mappings, paths,initial_forest,refi
     prob = -np.log(initial_forest.predict_proba(rgb_data) + 1e-7)
     prob2 = -np.log(refined_forest.predict_proba(rgb_data) + 1e-7)
     
-        
     count = 0
     unary = np.zeros((n_paths, 2))    
     unary_forest = np.zeros((n_paths, 2))    
@@ -250,7 +251,7 @@ def optimize_lsa(unary,pairwise, segs,paths):
     count = 0
     mask = []
     r,c = segs[0].shape
-    mask_label = np.ones((r,c,len(segs)-1)) * 0.5
+    mask_label = np.ones((r,c,len(segs))) * 0.5
 
     for (i,path) in enumerate(paths.values()):
         if labels[i][0] == 0:
@@ -258,7 +259,7 @@ def optimize_lsa(unary,pairwise, segs,paths):
         else:
             mask_label[path.rows, path.cols, path.frame] = 0            
             
-    for j in range(len(segs)-1):
+    for j in range(len(segs)):
         mask.append(mask_label[:,:,j])
     
     return mask,labels
@@ -275,28 +276,38 @@ def load_traj(name):
             return paths
     else:
         from path import get_paths
+        print "path not found. Computing ..."
+        sys.stdout.flush()
         paths = get_paths(name)
-        
+         
         from cPickle import dump
 
-        with open('data/trajs/paths_%s.pickle' % name, 'w') as f:
+        with open('data/trajs/%s.pickle' % name, 'w') as f:
              dump(paths,f)
 
         return paths
             
 ### which video to segment ###
 #name = 'soldier'
-name = 'monkey'
+#name = 'bmx'
 #name = 'girl'
 #name = 'hummingbird'
+#name = 'monkey'
 
+if len(sys.argv) == 1:
+    sys.exit("No video given.")
+else:    
+    name = sys.argv[1]
+    
+print "Video name: ", name
 ### load required precomputed data ###
+
 data_dir = "data"
 imdir = "%s/rgb/%s/" % (data_dir,name)
 
 frames = [os.path.join(imdir, f) for f in sorted(os.listdir(imdir)) if f.endswith(".png")] 
 
-imgs = [img_as_ubyte(imread(f)) for f in frames]
+imgs = [img_as_ubyte(imread(f))[:,:,:3] for f in frames]
         
 sp_file = "%s/tsp/%s.mat" % (data_dir,name)
 
@@ -307,7 +318,7 @@ sp_label = loadmat(sp_file)['sp_labels']
 # mappings is a mapping from original superpixel label to relabeled ones and vice versa
 print 'relabel segment labels...'
 segs,label_mappings = relabel(sp_label)
-
+sys.stdout.flush()
 # path here refers to each tsp trajectory
 print 'load precomputed TSP trajectories (or compute if nessesary)...'
 paths = load_traj(name)
@@ -329,25 +340,25 @@ diffused_prob,diffused_image = diffuse_inprob(inprobs, paths, segs,imgs)
 
 inprob_image = np.zeros(diffused_image.shape)
 
-id2index = []
-index = 0
-for i in range(len(inprobs)):
-    id2index.append({})
-    for (jj,j) in enumerate(inprobs[i][0]):
-        id2index[i][jj] = index
-        index += 1
+# id2index = []
+# index = 0
+# for i in range(len(inprobs)):
+#     id2index.append({})
+#     for (jj,j) in enumerate(inprobs[i][0]):
+#         id2index[i][jj] = index
+#         index += 1
 
-for (i,id) in enumerate(paths.keys()):
-    frame = paths[id].frame
-    rows = paths[id].rows
-    cols = paths[id].cols
+# for (i,id) in enumerate(paths.keys()):
+#     frame = paths[id].frame
+#     rows = paths[id].rows
+#     cols = paths[id].cols
 
-    unique_frame = np.unique(frame)
+#     unique_frame = np.unique(frame)
 
-    for f in unique_frame:
-        r = rows[frame == f]
-        c = cols[frame == f]
-        inprob_image[r,c,f] = inprobs[f][0][segs[f][r[0],c[0]]]
+#     for f in unique_frame:
+#         r = rows[frame == f]
+#         c = cols[frame == f]
+#         inprob_image[r,c,f] = inprobs[f][0][segs[f][r[0],c[0]]]
 
 ###### Random forest ########
 print 'Random Forest...'
@@ -457,14 +468,16 @@ for (r,c,a) in zip(row_index, col_index, affinity):
 
 PE = np.zeros((len(source), 6))
 
-param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
-potts_weight = param[name]
+# param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
+# potts_weight = param[name]
+
+potts_weight = 0.5
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-loc_weight = 1
+loc_weight = 0.5
 
 unary = loc_weight * unary_loc + unary_forest
 
@@ -541,17 +554,19 @@ for (r,c,a) in zip(row_index, col_index, affinity):
 unary_loc, unary_forest, unary_forest_refined = path_unary(frames, segs,loc_unary, label_mappings, paths,forest, forest2)
             
 PE = np.zeros((len(source), 6))
-param = {"bmx":0.5, "girl":1, "hummingbird":1, "soldier":0.01}
-potts_weight = param[name]
+# param = {"bmx":0.5, "girl":1, "hummingbird":1, "soldier":0.01}
+# potts_weight = param[name]
+potts_weight = 0.5
 PE[:,0] = np.array(target)+1
 PE[:,1] = np.array(source)+1
 PE[:,3] = np.array(aff)* potts_weight
 PE[:,4] = np.array(aff)* potts_weight
 
-w1 = {"bmx":0.5, "girl":0.5, "hummingbird":0.5, "soldier":0.5}
-w2 = {"bmx":2, "girl":0.5, "hummingbird":2, "soldier":3}
-w3 = {"bmx":2, "girl":1.5, "hummingbird":0.5, "soldier":0.5}
-u = w1[name] * unary_loc + w2[name] * unary_forest + w3[name] * unary_forest_refined
+# w1 = {"bmx":0.5, "girl":0.5, "hummingbird":0.5, "soldier":0.5}
+# w2 = {"bmx":2, "girl":0.5, "hummingbird":2, "soldier":3}
+# w3 = {"bmx":2, "girl":1.5, "hummingbird":0.5, "soldier":0.5}
+#u = w1[name] * unary_loc + w2[name] * unary_forest + w3[name] * unary_forest_refined
+u = 0.5 * unary_loc + 2 * unary_forest + 1 * unary_forest_refined
 
 new_mask,labeling =  optimize_lsa(u, PE,segs, paths)
 
@@ -592,8 +607,8 @@ if len(gt) > 1:
             g[j] += gt[i][j]
 
 res = []
-for i in range(len(g)-1):
 
+for i in range(len(g)):
     figure(figsize(15,12))
     result = np.ones((r,c,3), dtype=ubyte) * 125
     rs,cs = np.nonzero(new_mask[i] == 1)
@@ -606,4 +621,4 @@ for i in range(len(g)-1):
 
 print "Average precision score:", compute_ap(g, new_mask)
 
-os.system('rm *.mat')
+#os.system('rm *.mat')

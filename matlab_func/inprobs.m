@@ -15,10 +15,10 @@ options.vocal = false;
  save(flow_file, 'flow');
 end    
 
-load sp.mat
+load(['sp_' name '.mat'])
 %addpath('modified')
 addpath('matlab_func/modified')
-frames = size(superpixels,3) - 1;
+frames = size(superpixels,3);
 sp = cell(frames, 1);
 
 for i =1:frames
@@ -35,5 +35,5 @@ end
 
     inRatios = sp_inratio(sp, inMaps );
 
-    save inprobs.mat inRatios 
+    save(['inprobs_' name '.mat'], 'inRatios') 
     

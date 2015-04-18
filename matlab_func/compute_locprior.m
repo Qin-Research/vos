@@ -2,8 +2,9 @@ load name.mat
 addpath(genpath('external/FastVideoSegment/'))
 flow_file = ['flow_' name '.mat'];
 load(flow_file)
-load sp.mat
-load diffused.mat
+load(['sp_' name '.mat'])
+load(['diffused_' name '.mat'])
+
 
 addpath('matlab_func/modified')
 frames = size(superpixels,3);
@@ -18,7 +19,7 @@ end
 nodes
 
 diffused = cell(frames,1);
-for i =1:frames-1
+for i =1:frames
     diffused{i} = diffused_inprobs{i}';
 end    
 
@@ -53,4 +54,4 @@ end
 %    end
 %    locationUnaries( :, 2 ) = 1 - locationUnaries( :, 1 );
    
-    save locprior.mat locationUnaries;
+    save(['locprior_' name '.mat'], 'locationUnaries');

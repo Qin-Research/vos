@@ -7,7 +7,7 @@ images = dir([['data/rgb/',name, '/'], '*.png']);
 im = imread(['data/rgb/' name '/' images(1).name]);
 [r,c,ch] = size(im);
 
-edges = zeros(r,c,length(images)-1);
+edges = zeros(r,c,length(images));
 for zz = 1 : length(images) -1
 
     I = imread(['data/rgb/' name '/' images(zz).name]);
@@ -17,4 +17,4 @@ for zz = 1 : length(images) -1
 
 end
 
-save('edges.mat', 'edges') 
+save(['edges_' name '.mat'], 'edges') 

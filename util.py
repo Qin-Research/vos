@@ -189,9 +189,6 @@ def flow_dir(name):
     savemat("data/flow/%s/vx.mat" % name, {'vx':vx})        
     savemat("data/flow/%s/vy.mat" % name, {'vy':vy})        
         
-def make_video(dir_name, save_file=None):
-    imgs = get_frames(dir_name)
-    show_video(imgs, save_file)
 
 def get_frames(dir_name):
     f_names = [os.path.join(dir_name, f) for f in os.listdir(dir_name)]
@@ -215,6 +212,10 @@ def show_video(frames,save_file=None):
     else:
         plt.show()        
 
+def play_video(name, save_file=None):
+    imgs = get_frames("data/rgb/%s/" %name)
+    show_video(imgs, save_file)
+        
 def save_frames(frames):
     from scipy.misc import imsave
     from skimage.transform import resize    

@@ -11,7 +11,6 @@ from skimage.feature import hog
 from joblib import Parallel, delayed
 from skimage.segmentation import find_boundaries
 from IPython.core.pylabtools import figsize
-from path import Path
 from scipy.sparse import csr_matrix, spdiags
 from util import *
 
@@ -20,13 +19,21 @@ def diffuse_inprob(inprobs,paths, segs, imgs):
     init_prob = []
     id2index = []
     index = 0
-    for i in range(len(inprobs)):
+    n_last = len(np.unique(segs[-1]))
+    for i in range(len(inprobs) + 1):
         id2index.append({})
-        for (jj,j) in enumerate(inprobs[i][0]):
-            init_prob.append(j[0])
-            id2index[i][jj] = index
-            index += 1
-    
+
+        if i == len(inprobs):
+            for j in range(n_last):
+                init_prob.append(0)
+                id2index[i][j] = index
+                index += 1
+        else:
+            for (jj,j) in enumerate(inprobs[i][0]):
+                init_prob.append(j[0])
+                id2index[i][jj] = index
+                index += 1
+        
     dist = []
     row_index = []
     col_index = []
@@ -69,7 +76,7 @@ def diffuse_inprob(inprobs,paths, segs, imgs):
                 dist.append(d)
     
     adjs = []            
-    for f in range(len(segs)-1):
+    for f in range(len(segs)):
         adjs.append(get_sp_adj(segs[f]))
         
     for i in range(n_frames-1):
