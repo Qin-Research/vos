@@ -319,13 +319,13 @@ diffused_prob = diffuse_inprob(inprobs, paths, segs,imgs)
 inprob_image = prob_to_image(inprobs, paths, segs) 
 diffused_image = prob_to_image(diffused_prob, paths,segs ) 
 
-# for i in range(diffused_image.shape[2]):
-#     figure(figsize(12,9))
-#     subplot(1,2,1)
-#     imshow(inprob_image[:,:,i])
-#     subplot(1,2,2)
-#     imshow(diffused_image[:,:,i])
-#     show()
+for i in range(diffused_image.shape[2]):
+    figure(figsize(12,9))
+    subplot(1,2,1)
+    imshow(inprob_image[:,:,i])
+    subplot(1,2,2)
+    imshow(diffused_image[:,:,i])
+    show()
     
 locprior = compute_locprior(name, segs, diffused_prob)
 loc_unary = -np.log(locprior+1e-7)
@@ -386,14 +386,14 @@ for (i,id) in enumerate(paths.keys()):
 
 unary_loc, unary_forest,_ = path_unary(frames, segs,loc_unary, label_mappings, long_paths,forest,forest) #second forest is dummy
 
-loc_weight = 0.5
+loc_weight = 0.8
 
 unary = loc_weight * unary_loc + unary_forest
 
 ######### Pairwise #######
 # Compute color edge distance and flow edge distance between neighboring trajectories.
 
-param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
+#param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
 # potts_weight = param[name]
 potts_weight = 0.5        
 PE, affinity = get_pairwise(sp_label, edges, flow_edges, long_paths, potts_weight)
@@ -496,3 +496,5 @@ for i in range(len(g)):
 print "Average precision score:", compute_ap(g, new_mask)
 
 #os.system('rm *.mat')
+
+#bmx 0.76, girl 0.63, hummingbird 0.65, soldier 0.67, parachute 0.94, drift 0.73, birdfall 0.05, monkeydog 0.13

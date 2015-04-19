@@ -258,7 +258,7 @@ def get_segtrack_gt(name):
         ret.append(frames)
     return ret
 
-def get_sp_adj(seg):
+def get_sp_adj_job(seg):
     uni = np.unique(seg)
     r,c = seg.shape
 
@@ -275,6 +275,13 @@ def get_sp_adj(seg):
                 adj[seg[j,i],seg[j-1,i]] = 1
                 
     return adj
+
+def sp_adj(segs):
+    
+    adjs = Parallel(n_jobs=-1)(delayed(get_sp_adj_job)(segs[i]) for i in range(len(segs)))
+    
+    return adjs
+
 
 def relabel_job(sp_label):
     count = 0

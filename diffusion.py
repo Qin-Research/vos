@@ -7,6 +7,7 @@ from skimage import img_as_ubyte
 from scipy.io import loadmat,savemat
 from scipy.sparse import csr_matrix, spdiags
 from util import *
+from pyamg import solve
 
 def diffuse_inprob(inprobs, paths, segs, imgs):
     #inprobs is a list of inside probability for superpixels
@@ -64,10 +65,8 @@ def diffuse_inprob(inprobs, paths, segs, imgs):
                 dist.append(d)
                 dist.append(d)
     
-    adjs = []            
-    for f in range(len(segs)):
-        adjs.append(get_sp_adj(segs[f]))
-        
+    adjs = sp_adj(segs)
+                
     for i in range(n_frames-1):
         for j in range(adjs[i].shape[0]):
             index1 = id2index[i][j]
@@ -107,7 +106,8 @@ def diffuse_inprob(inprobs, paths, segs, imgs):
     from scipy.sparse import eye
     
     from scipy.sparse.linalg import spsolve,lsmr
-    diffused_prob = spsolve(lhs, D.dot(np.array(init_prob)))
+#    diffused_prob = spsolve(lhs, D.dot(np.array(init_prob)))
+    diffused_prob = solve(lhs, D.dot(np.array(init_prob)))
     
     diffused_probs = []
     
