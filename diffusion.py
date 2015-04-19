@@ -5,40 +5,29 @@ from time import time
 import os
 from skimage import img_as_ubyte
 from scipy.io import loadmat,savemat
-from sklearn.preprocessing import scale
-from skimage.color import rgb2gray,rgb2lab
-from skimage.feature import hog
-from joblib import Parallel, delayed
-from skimage.segmentation import find_boundaries
-from IPython.core.pylabtools import figsize
 from scipy.sparse import csr_matrix, spdiags
 from util import *
 
-def diffuse_inprob(inprobs,paths, segs, imgs):
+def diffuse_inprob(inprobs, paths, segs, imgs):
+    #inprobs is a list of inside probability for superpixels
                                
     init_prob = []
     id2index = []
     index = 0
     n_last = len(np.unique(segs[-1]))
-    for i in range(len(inprobs) + 1):
+    for i in range(len(inprobs)):
         id2index.append({})
-
-        if i == len(inprobs):
-            for j in range(n_last):
-                init_prob.append(0)
-                id2index[i][j] = index
-                index += 1
-        else:
-            for (jj,j) in enumerate(inprobs[i][0]):
-                init_prob.append(j[0])
-                id2index[i][jj] = index
-                index += 1
+        for (jj,j) in enumerate(inprobs[i]):
+             init_prob.append(j)
+             id2index[i][jj] = index
+             index += 1
         
     dist = []
     row_index = []
     col_index = []
     rgbs = np.zeros((len(init_prob),3))
-    n_frames = len(imgs)        
+    n_frames = len(imgs)
+    
     for (i,id) in enumerate(paths.keys()):
         frame = paths[id].frame
         rows = paths[id].rows
@@ -124,25 +113,9 @@ def diffuse_inprob(inprobs,paths, segs, imgs):
     
     count = 0
     for i in range(len(inprobs)):
-        diffused_probs.append(diffused_prob[count:len(inprobs[i][0])+count])
-        count += len(inprobs[i][0])
-            
-    u = np.zeros(len(paths))
+        diffused_probs.append(diffused_prob[count:len(inprobs[i])+count])
+        count += len(inprobs[i])
 
-    h,w,_ = imgs[0].shape
-    s = (h,w,len(imgs))
-    diffused_image = np.zeros(s)
-    
-    for (i,id) in enumerate(paths.keys()):
-        frame = paths[id].frame
-        rows = paths[id].rows
-        cols = paths[id].cols
-    
-        unique_frame = np.unique(frame)
-    
-        for f in unique_frame:
-            r = rows[frame == f]
-            c = cols[frame == f]
-            diffused_image[r,c,f] = diffused_prob[id2index[f][segs[f][r[0],c[0]]]]
+    return diffused_probs
 
-    return diffused_probs, diffused_image                                        
+        
