@@ -276,8 +276,15 @@ if len(sys.argv) == 1:
     sys.exit("No video given.")
 else:    
     name = sys.argv[1]
-    
+
+if len(sys.argv) == 3:
+    potts_weight = float(sys.argv[2])
+else:
+    potts_weight = 0.5
+        
 print "Video name: ", name
+print "Pairwise weight: ", potts_weight
+
 
 ### load required precomputed data ###
 
@@ -395,7 +402,6 @@ unary = loc_weight * unary_loc + unary_forest
 
 #param = {"bmx":0.5, "girl":0.1, "hummingbird":1, "soldier":1}
 # potts_weight = param[name]
-potts_weight = 0.5        
 PE, affinity = get_pairwise(sp_label, edges, flow_edges, long_paths, potts_weight)
     
 ######### Optimize ##########
@@ -439,7 +445,6 @@ u = 0.5 * unary_loc + 2 * unary_forest + 1 * unary_forest_refined
 
 # param = {"bmx":0.5, "girl":1, "hummingbird":1, "soldier":0.01}
 # potts_weight = param[name]
-potts_weight = 0.5
 
 PE, affinity = get_pairwise(sp_label, edges, flow_edges, paths, potts_weight)
 
