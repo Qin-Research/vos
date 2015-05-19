@@ -29,11 +29,13 @@ def prob_to_image(prob,paths,segs):
 
     return image
 
-def plot_paths_value(paths, sp_label, values,cm):
+def plot_unary(paths, sp_label, unary):
 
+    cm = jet()
+    unary = np.exp(-0.5 * unary[:,0])
     val = np.zeros(sp_label.shape)
     for (i,id) in enumerate(paths.keys()):
-        val[paths[id].rows, paths[id].cols, paths[id].frame] = values[i]
+        val[paths[id].rows, paths[id].cols, paths[id].frame] = unary[i]
 
     for i in range(sp_label.shape[2]):
         imshow(val[:,:,i], cm)
@@ -41,12 +43,22 @@ def plot_paths_value(paths, sp_label, values,cm):
 
     return val
     
-def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
+def plot_affinity(affinity, source, target, frames, sp_label, paths, id_mapping, id_mapping2):
 
+    aff_dict = []
+
+    n_paths = len(paths)
+    
+    for i in range(n_paths):
+        aff_dict.append({})
+    
+    for (s,t,a) in zip(source, target, affinity):
+        aff_dict[s][t] = a   
+        
     r,c,n_frame = sp_label.shape
     aff = np.ones((r,c,n_frame)) * inf
 
-    for k in range(n_frame):
+    for k in range(n_frame-1):
         for j in range(c):
             for i in range(r):
                l = sp_label[i,j,k]
@@ -55,42 +67,24 @@ def plot_affinity2(affinity, frames, sp_label, paths, id_mapping, id_mapping2):
                if i > 0:
                    ll = sp_label[i-1,j,k]
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]
+                       aff[i,j,k] = aff_dict[index][id_mapping[ll]]
 
                if i < sp_label.shape[0]-1:
                    ll = sp_label[i+1,j,k]
 
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       aff[i,j,k] = aff_dict[index][id_mapping[ll]]                       
                        
                if j > 0:
                    ll = sp_label[i,j-1,k]
 
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       aff[i,j,k] = aff_dict[index][id_mapping[ll]]                       
                                               
                if j < sp_label.shape[1] -1:
                    ll = sp_label[i,j+1,k]
 
                    if l != ll:
-                       aff[i,j,k] = affinity[index][id_mapping[ll]]                       
+                       aff[i,j,k] = aff_dict[index][id_mapping[ll]]                       
 
-
-
-    for i in range(sp_label.shape[2]):
-
-        figure(figsize(21,18))
-        im = imread(frames[i])
-
-        subplot(1,2,1)
-        imshow(im)
-        axis("off")
-
-        subplot(1,2,2)
-        imshow(aff[:,:,i],jet())
-        axis("off")
-        colorbar()
-
-        show()
-                                       
     return aff

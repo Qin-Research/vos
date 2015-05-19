@@ -15,6 +15,9 @@ from vis import *
 from matlab_call import *
     
 def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
+    #Return a list of dict, where each dict is something like: {'neighbor_id1':edge_distance, ...}
+    #The length of the list is n_paths, one dict for one trajectory
+    
     row_index = []
     col_index = []
     edge_values =[]
@@ -103,7 +106,9 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
                 
                 p2 = paths[ind2id[a]]
                 f_index2 = np.nonzero(np.unique(p2.frame) == k)[0][0]
-                
+
+                #Take maximum over adjacent frames
+                #See 'Segmentation of moving objects by long term video analysis', PAMI2014, Section 4. 
                 if edge_dists[i][a] <= edge_dists_buf[i][a]:
                     edge_dists[i][a] =edge_dists_buf[i][a]
                 if flow_edge_dists[i][a] <= flow_edge_dists_buf[i][a]:
@@ -114,7 +119,9 @@ def path_neighbors(sp_label, n_paths, id2ind, ind2id, edges, flow_edges,paths):
     return edge_dists, flow_edge_dists, edge_len
 
 
-def get_pairwise(sp_label, edges, flow_edges, paths, potts_weight):
+def get_pairwise(sp_label, edges, flow_edges, paths, potts_weight, vis=False):
+    #Return pairwise potential (and pairwise affinity)
+    #See README of external/LSA for the shape of pairwise potential
     
     n_paths = len(paths)
     id2ind = {}
@@ -159,7 +166,7 @@ def get_pairwise(sp_label, edges, flow_edges, paths, potts_weight):
             source.append(r)
             target.append(c)
             aff.append(a)
-    
+
     PE = np.zeros((len(source), 6))
     
     PE[:,0] = np.array(target)+1
@@ -167,7 +174,11 @@ def get_pairwise(sp_label, edges, flow_edges, paths, potts_weight):
     PE[:,3] = np.array(aff)* potts_weight
     PE[:,4] = np.array(aff)* potts_weight
 
-    return PE, affinity
+    if vis:            
+        aff_vis = plot_affinity(aff,source, target, frames, sp_label, paths, id2ind, ind2id)
+        return PE, affinity, aff_vis
+    else:
+        return PE, affinity
 
                        
 def path_unary(frames, segs, loc_unary, label_mappings, paths,initial_forest,refined_forest):
@@ -443,11 +454,20 @@ unary_loc, unary_forest, unary_forest_refined = path_unary(frames, segs,loc_unar
 #u = w1[name] * unary_loc + w2[name] * unary_forest + w3[name] * unary_forest_refined
 u = 0.5 * unary_loc + 2 * unary_forest + 1 * unary_forest_refined
 
+plot_unary(paths, sp_label, u)
+#plot_unary(paths, sp_label, unary_forest)
+#plot_unary(paths, sp_label, unary_forest_refined)
+
 # param = {"bmx":0.5, "girl":1, "hummingbird":1, "soldier":0.01}
 # potts_weight = param[name]
 
-PE, affinity = get_pairwise(sp_label, edges, flow_edges, paths, potts_weight)
+print "Compute and plot pairwise affinity"
+PE, affinity, aff_vis = get_pairwise(sp_label, edges, flow_edges, paths, potts_weight, True)
 
+for i in range(aff_vis.shape[2]):
+    imshow(aff_vis[:,:,i])
+    show()
+    
 new_mask,labeling =  optimize_lsa(u, PE,segs, paths)
 
 #######################################################

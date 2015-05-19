@@ -1,4 +1,5 @@
 I recommend install Anaconda python distribution first.
+This code also requires MATLAB installed.
 
 Steps to reproduce results:
 
