@@ -54,4 +54,8 @@ There are many things to improve on.
       --- Hence, the first forest has a larger weight (see segmentation.py)
       --- This contradicts my motivation for two step segmentation.
 
-If you have any question, just ask me. My email address is masahi129@gmail.com. 
+# Results
+[![Alt text](https://img.youtube.com/vi/5oVHtXf6JXc/0.jpg)](https://www.youtube.com/watch?v=5oVHtXf6JXc)
+[![Alt text](https://img.youtube.com/vi/I5ns1PwIsw8/0.jpg)](https://www.youtube.com/watch?v=I5ns1PwIsw8)
+[![Alt text](https://img.youtube.com/vi/ezlmLc_8YeU/0.jpg)](https://www.youtube.com/watch?v=ezlmLc_8YeU)
+[![Alt text](https://img.youtube.com/vi/9vprD1UsYWs/0.jpg)](https://www.youtube.com/watch?v=9vprD1UsYWs)
