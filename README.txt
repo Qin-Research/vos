@@ -1,8 +1,3 @@
-[![bmx](http://img.youtube.com/vi/5oVHtXf6JXc/0.jpg)](https://www.youtube.com/watch?v=5oVHtXf6JXc  "bmx")
-
-
-
-
 Please read my thesis, in particular chap 3 first.
 And you also want to read Papazoglou et al., ICCV2013, which my method depends on (But I want to remove this dependency).
 
